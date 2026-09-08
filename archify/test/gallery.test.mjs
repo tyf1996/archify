@@ -27,14 +27,14 @@ test('generated proof gallery matches its sources, receipts, and checked-in arti
     path.join(repoRoot, 'scripts', 'build-gallery.mjs'),
     generatedRoot,
   ], { encoding: 'utf8' });
-  assert.match(output, /gallery 11 artifacts \/ 99 checks/);
+  assert.match(output, /gallery 16 artifacts \/ 144 checks/);
 
   const manifestPath = path.join(generatedRoot, 'gallery', 'manifest.json');
   const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
   assert.equal(manifest.schemaVersion, 1);
   assert.equal(manifest.archifyVersion, JSON.parse(fs.readFileSync(path.join(skillRoot, 'package.json'))).version);
-  assert.equal(manifest.entryCount, 11);
-  assert.equal(manifest.checkCount, 99);
+  assert.equal(manifest.entryCount, 16);
+  assert.equal(manifest.checkCount, 144);
   assert.deepEqual(new Set(manifest.entries.map((entry) => entry.type)), new Set([
     'architecture', 'workflow', 'sequence', 'dataflow', 'lifecycle',
   ]));
@@ -43,12 +43,29 @@ test('generated proof gallery matches its sources, receipts, and checked-in arti
       type,
       manifest.entries.filter((entry) => entry.type === type).length,
     ])),
-    { architecture: 2, workflow: 3, sequence: 2, dataflow: 2, lifecycle: 2 },
+    { architecture: 3, workflow: 4, sequence: 3, dataflow: 3, lifecycle: 3 },
   );
   assert.deepEqual(
     new Set(manifest.entries.map((entry) => entry.id)),
     new Set(SCENARIO_RECIPES.map((recipe) => recipe.proof)),
   );
+
+  const embeddedProofs = {
+    'embedded-runtime-map': { type: 'architecture', input: 'embedded-runtime-map.architecture.json', evidence: 'gallery/evidence/embedded-runtime-map.md' },
+    'bare-metal-boot': { type: 'workflow', input: 'bare-metal-boot.workflow.json', evidence: 'gallery/evidence/bare-metal-boot.md' },
+    'rtos-irq-handoff': { type: 'sequence', input: 'rtos-irq-handoff.sequence.json', evidence: 'gallery/evidence/rtos-irq-handoff.md' },
+    'linux-device-data-path': { type: 'dataflow', input: 'linux-device-data-path.dataflow.json', evidence: 'gallery/evidence/linux-device-data-path.md' },
+    'firmware-update-state': { type: 'lifecycle', input: 'firmware-update-state.lifecycle.json', evidence: 'gallery/evidence/firmware-update-state.md' },
+  };
+  for (const [id, expected] of Object.entries(embeddedProofs)) {
+    const entry = manifest.entries.find((candidate) => candidate.id === id);
+    assert.ok(entry, `${id}: embedded proof missing`);
+    assert.equal(entry.type, expected.type);
+    assert.equal(entry.input, `gallery/sources/${expected.input}`);
+    assert.equal(entry.evidence, expected.evidence);
+    assert.equal(entry.view, 'main-path');
+    assert.deepEqual(entry.viewIds, ['main-path', 'recovery-path', 'evidence-gaps']);
+  }
 
   const workflow = manifest.entries.find((entry) => entry.id === 'agent-tool-call');
   assert.equal(workflow.view, 'happy-path');
@@ -66,6 +83,7 @@ test('generated proof gallery matches its sources, receipts, and checked-in arti
     const source = path.join(generatedRoot, entry.input.replace(/^gallery\//, 'gallery/'));
     assert.ok(fs.existsSync(artifact), `${entry.id}: artifact missing`);
     assert.ok(fs.existsSync(source), `${entry.id}: source missing`);
+    if (entry.evidence) assert.ok(fs.existsSync(path.join(generatedRoot, entry.evidence)), `${entry.id}: evidence missing`);
     assert.equal(sha256(artifact), entry.artifactSha256, `${entry.id}: artifact digest drift`);
     assert.equal(sha256(source), entry.sourceSha256, `${entry.id}: source digest drift`);
     assert.equal(entry.checks.length, 9);
@@ -83,7 +101,7 @@ test('generated proof gallery matches its sources, receipts, and checked-in arti
   }
 
   const html = fs.readFileSync(path.join(generatedRoot, 'gallery.html'), 'utf8');
-  assert.equal((html.match(/class="showcase-card/g) || []).length, 11);
+  assert.equal((html.match(/class="showcase-card/g) || []).length, 16);
   assert.match(html, /id="gallery-manifest" type="application\/json"/);
   assert.match(html, /data-src-base="gallery\/artifacts\/agent-tool-call\.workflow\.html"/);
   assert.match(html, /agent-tool-call\.workflow\.html\?present=1&amp;play=1#view=happy-path/);
@@ -92,7 +110,11 @@ test('generated proof gallery matches its sources, receipts, and checked-in arti
   assert.match(html, /Play named chapter/);
   assert.match(html, /3 views · play/);
   assert.match(html, /Proof,<br><em>not promises\.<\/em>/);
-  assert.match(html, /Five lenses\. Eleven real stories\./);
+  assert.match(html, /Five lenses\. 16 real stories\./);
+  assert.match(html, /五种视角，16个真实故事。/);
+  assert.match(html, /gallery\/evidence\/embedded-runtime-map\.md/);
+  assert.match(html, /gallery\/evidence\/firmware-update-state\.md/);
+  assert.equal((html.match(/>Evidence notes</g) || []).length, 5);
   assert.match(html, /Composition<\/span><span class="receipt-value ok" title="0 crossings · 0 border runs · 0 micro segments · 0 cramped turns">SHOWCASE · PASS/);
   assert.match(html, /Engineering profile/);
   assert.match(html, /DEPLOYMENT OWNERSHIP · PASS/);
@@ -103,7 +125,7 @@ test('generated proof gallery matches its sources, receipts, and checked-in arti
   );
   assert.match(html, /\.filter-button \{\s+min-height: 44px;/);
   assert.match(html, /\.card-link \{ min-height: 44px;/);
-  assert.equal((html.match(/class="card-link create-link"/g) || []).length, 11);
+  assert.equal((html.match(/class="card-link create-link"/g) || []).length, 16);
   for (const type of ['architecture', 'workflow', 'sequence', 'dataflow', 'lifecycle']) {
     assert.match(html, new RegExp(`start\\.html\\?type=${type}&amp;source=gallery`), `${type}: gallery-to-start link missing`);
   }
@@ -117,7 +139,7 @@ test('generated proof gallery matches its sources, receipts, and checked-in arti
     'assets/site-language.js',
     'assets/site-navigation.css',
     'gallery/manifest.json',
-    ...manifest.entries.flatMap((entry) => [entry.artifact, entry.input]),
+    ...manifest.entries.flatMap((entry) => [entry.artifact, entry.input, ...(entry.evidence ? [entry.evidence] : [])]),
   ]) {
     const fresh = path.join(generatedRoot, relative);
     const checked = path.join(repoRoot, 'docs', relative);

@@ -1,0 +1,54 @@
+{
+  "schema_version": 1,
+  "diagram_type": "dataflow",
+  "execution_domains": [
+    { "id": "linux-device", "label": "Linux device", "environment": "linux", "processor": "application processor" }
+  ],
+  "meta": {
+    "title": "Linux Device Data Path",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "engineering_profile": "embedded-runtime",
+    "viewBox": [1068, 650],
+    "views": [
+      { "id": "main-path", "label": "Peripheral to output", "focus": ["peripheral", "dma", "kernelBuffer", "userProcess", "output"], "note": "DMA transfer, kernel buffer, user process, and output remain explicit." },
+      { "id": "recovery-path", "label": "Buffer overflow", "focus": ["kernelBuffer", "drop"], "note": "The drop path makes overflow visible without claiming a particular recovery guarantee." },
+      { "id": "evidence-gaps", "label": "Evidence gaps", "focus": ["dma", "kernelBuffer", "userProcess"], "note": "Buffer ownership, cache policy, throughput, and dropped-frame threshold are unknown." }
+    ]
+  },
+  "stages": [
+    { "label": "Device" },
+    { "label": "Transfer" },
+    { "label": "Kernel" },
+    { "label": "User space" },
+    { "label": "Output" }
+  ],
+  "nodes": [
+    { "id": "peripheral", "type": "hardware", "label": "Peripheral", "sublabel": "input samples", "stage": 0, "row": 1, "width": 130, "execution_domain": "linux-device", "execution_context": "hardware" },
+    { "id": "dma", "type": "hardware", "label": "DMA controller", "sublabel": "transfer engine", "stage": 1, "row": 1, "width": 130, "execution_domain": "linux-device", "execution_context": "hardware" },
+    { "id": "kernelBuffer", "type": "buffer", "label": "Kernel buffer", "sublabel": "kernel-owned queue", "stage": 2, "row": 1, "width": 145, "execution_domain": "linux-device", "execution_context": "linux-kernel" },
+    { "id": "drop", "type": "software", "label": "Drop path", "sublabel": "overflow record", "stage": 2, "row": 3, "width": 145, "execution_domain": "linux-device", "execution_context": "linux-kernel" },
+    { "id": "userProcess", "type": "process", "label": "User process", "sublabel": "consumer", "stage": 3, "row": 1, "width": 135, "execution_domain": "linux-device", "execution_context": "linux-user" },
+    { "id": "output", "type": "hardware", "label": "Output device", "sublabel": "downstream sink", "stage": 4, "row": 1, "width": 130, "execution_domain": "linux-device", "execution_context": "hardware" }
+  ],
+  "flows": [
+    { "id": "peripheral-dma-source", "from": "peripheral", "to": "dma", "label": "device samples", "mechanism": "bus", "variant": "default", "labelAt": [208, 330] },
+    { "id": "dma-kernelBuffer-transfer", "from": "dma", "to": "kernelBuffer", "label": "DMA transfer", "mechanism": "dma", "variant": "emphasis", "labelAt": [419, 330] },
+    { "id": "kernelBuffer-userProcess-read", "from": "kernelBuffer", "to": "userProcess", "label": "deliver buffered sample; access API unspecified", "mechanism": "data-transfer", "variant": "emphasis", "labelAt": [638, 210] },
+    { "id": "userProcess-output-write", "from": "userProcess", "to": "output", "label": "processed output", "mechanism": "data-transfer", "variant": "default", "labelAt": [853, 330] },
+    { "id": "kernelBuffer-drop-overflow", "from": "kernelBuffer", "to": "drop", "label": "overflow drop", "mechanism": "notification", "variant": "security", "route": "vertical-channel" }
+  ],
+  "semanticChecks": {
+    "requiredRelations": [
+      { "from": "peripheral", "to": "dma", "mechanism": "bus" },
+      { "from": "dma", "to": "kernelBuffer", "mechanism": "dma" },
+      { "from": "kernelBuffer", "to": "userProcess", "mechanism": "data-transfer" },
+      { "from": "userProcess", "to": "output", "mechanism": "data-transfer" },
+      { "from": "kernelBuffer", "to": "drop", "mechanism": "notification" }
+    ]
+  },
+  "cards": [
+    { "dot": "cyan", "title": "Data-path boundary", "items": ["DMA controller is hardware; DMA is declared on the transfer relationship", "Kernel and user contexts are separate without claiming zero-copy"] },
+    { "dot": "orange", "title": "Unknown facts", "items": ["Buffer capacity and cache ownership are unknown", "Overflow visibility does not prove lossless recovery"] }
+  ]
+}

@@ -14,6 +14,7 @@ const skillRoot = path.join(repoRoot, 'archify');
 const outputRoot = path.resolve(process.argv[2] || path.join(repoRoot, 'docs'));
 const artifactsRoot = path.join(outputRoot, 'gallery', 'artifacts');
 const sourcesRoot = path.join(outputRoot, 'gallery', 'sources');
+const evidenceRoot = path.join(outputRoot, 'gallery', 'evidence');
 const templatePath = path.join(__dirname, 'gallery-template.html');
 const packageJson = JSON.parse(fs.readFileSync(path.join(skillRoot, 'package.json'), 'utf8'));
 
@@ -162,6 +163,76 @@ const CASES = [
     descriptionEn: 'A classic AWS web stack with edge delivery, authentication, API services, cache, persistence, and background work.',
     descriptionZh: '经典 AWS Web 栈：边缘分发、鉴权、API 服务、缓存、持久化与后台任务。',
   },
+  {
+    id: 'embedded-runtime-map',
+    type: 'architecture',
+    input: 'embedded-runtime-map.architecture.json',
+    output: 'embedded-runtime-map.architecture.html',
+    evidence: 'embedded-runtime-map.md',
+    focus: 'controlTask',
+    view: 'main-path',
+    accent: '#0f766e',
+    titleEn: 'Embedded Runtime Map',
+    titleZh: '嵌入式运行时地图',
+    descriptionEn: 'A vendor-neutral Linux and RTOS design fixture that separates cross-core notification from shared-buffer access and watchdog recovery.',
+    descriptionZh: '厂商中立的 Linux 与 RTOS 设计 fixture，明确区分跨核通知、共享缓冲访问与看门狗恢复。',
+  },
+  {
+    id: 'bare-metal-boot',
+    type: 'workflow',
+    input: 'bare-metal-boot.workflow.json',
+    output: 'bare-metal-boot.workflow.html',
+    evidence: 'bare-metal-boot.md',
+    focus: 'calibrate',
+    view: 'main-path',
+    accent: '#b45309',
+    titleEn: 'Bare-metal Boot',
+    titleZh: '裸机启动流程',
+    descriptionEn: 'A bare-metal design fixture keeps runtime initialization, board initialization, calibration, the foreground loop, and the timeout safe state explicit.',
+    descriptionZh: '裸机设计 fixture 明确保留运行时初始化、板级初始化、校准、前台主循环和超时安全态。',
+  },
+  {
+    id: 'rtos-irq-handoff',
+    type: 'sequence',
+    input: 'rtos-irq-handoff.sequence.json',
+    output: 'rtos-irq-handoff.sequence.html',
+    evidence: 'rtos-irq-handoff.md',
+    focus: 'queue',
+    view: 'main-path',
+    accent: '#7c3aed',
+    titleEn: 'RTOS IRQ Handoff',
+    titleZh: 'RTOS 中断交接',
+    descriptionEn: 'An RTOS design fixture separates peripheral IRQ, ISR enqueue and notification, worker consumption, and the queue-full recovery path.',
+    descriptionZh: 'RTOS 设计 fixture 分开表达外设中断、ISR 入队与通知、worker 消费和队列满恢复路径。',
+  },
+  {
+    id: 'linux-device-data-path',
+    type: 'dataflow',
+    input: 'linux-device-data-path.dataflow.json',
+    output: 'linux-device-data-path.dataflow.html',
+    evidence: 'linux-device-data-path.md',
+    focus: 'kernelBuffer',
+    view: 'main-path',
+    accent: '#a16207',
+    titleEn: 'Linux Device Data Path',
+    titleZh: 'Linux 设备数据路径',
+    descriptionEn: 'A Linux design fixture exposes the peripheral, DMA controller, kernel buffer, user process, output, and the buffer-overflow drop path.',
+    descriptionZh: 'Linux 设计 fixture 展示外设、DMA 控制器、内核缓冲、用户进程、输出和缓冲溢出丢弃路径。',
+  },
+  {
+    id: 'firmware-update-state',
+    type: 'lifecycle',
+    input: 'firmware-update-state.lifecycle.json',
+    output: 'firmware-update-state.lifecycle.html',
+    evidence: 'firmware-update-state.md',
+    focus: 'trial',
+    view: 'main-path',
+    accent: '#be123c',
+    titleEn: 'Firmware Update State',
+    titleZh: '固件更新状态',
+    descriptionEn: 'An image-object lifecycle design fixture follows download, verification, trial, confirmation, rollback, and explicit recovery without claiming a full device state machine.',
+    descriptionZh: '镜像对象 lifecycle 设计 fixture 依次表达下载、验证、试运行、确认、回滚和恢复，不冒充完整设备状态机。',
+  },
 ];
 
 const SHAPES = {
@@ -208,6 +279,9 @@ function renderCard(entry, index) {
   const engineeringProof = entry.engineeringProfile
     ? `\n              <div class="engineering-proof" aria-label="Engineering profile validation"><span>Engineering profile</span><strong>${esc(entry.engineeringProfile.replaceAll('-', ' ').toUpperCase())} · PASS</strong></div>`
     : '';
+  const evidenceLink = entry.evidence
+    ? `\n                <a class="card-link" href="${esc(entry.evidence)}" target="_blank" rel="noopener" data-en="Evidence notes" data-zh="证据说明">Evidence notes</a>`
+    : '';
   return `          <article class="${classes}" id="proof-${esc(entry.id)}" data-proof-id="${esc(entry.id)}" data-type="${esc(entry.type)}" style="--accent:${esc(TYPE_ACCENTS[entry.type] || entry.accent)}">
             <header class="card-header">
               <div class="card-index">${String(index + 1).padStart(2, '0')}</div>
@@ -232,7 +306,7 @@ function renderCard(entry, index) {
               <div class="card-actions">
                 <a class="card-link primary" href="${esc(focusedArtifact)}" target="_blank" rel="noopener" data-en="${esc(exploreEn)}" data-zh="${esc(exploreZh)}">${esc(exploreEn)}</a>
                 <a class="card-link" href="${esc(artifact)}" target="_blank" rel="noopener" data-en="Full artifact" data-zh="完整成品">Full artifact</a>
-                <a class="card-link" href="${esc(source)}" target="_blank" rel="noopener">JSON IR</a>
+                <a class="card-link" href="${esc(source)}" target="_blank" rel="noopener">JSON IR</a>${evidenceLink}
                 <a class="card-link create-link" href="start.html?type=${esc(entry.type)}&amp;source=gallery" data-en="Create this type" data-zh="按此类型开始">Create this type</a>
               </div>
             </div>
@@ -241,8 +315,10 @@ function renderCard(entry, index) {
 
 fs.rmSync(artifactsRoot, { recursive: true, force: true });
 fs.rmSync(sourcesRoot, { recursive: true, force: true });
+fs.rmSync(evidenceRoot, { recursive: true, force: true });
 fs.mkdirSync(artifactsRoot, { recursive: true });
 fs.mkdirSync(sourcesRoot, { recursive: true });
+fs.mkdirSync(evidenceRoot, { recursive: true });
 
 const entries = [];
 for (const item of CASES) {
@@ -251,6 +327,7 @@ for (const item of CASES) {
   const source = JSON.parse(sourceBuffer.toString('utf8'));
   const artifactPath = path.join(artifactsRoot, item.output);
   const sourcePath = path.join(sourcesRoot, item.input);
+  const evidencePath = item.evidence ? path.join(skillRoot, 'examples', 'evidence', item.evidence) : null;
 
   execFileSync(process.execPath, [
     path.join(skillRoot, 'renderers', item.type, `render-${item.type}.mjs`),
@@ -258,6 +335,7 @@ for (const item of CASES) {
     artifactPath,
   ], { stdio: ['ignore', 'ignore', 'pipe'] });
   fs.copyFileSync(inputPath, sourcePath);
+  if (evidencePath) fs.copyFileSync(evidencePath, path.join(evidenceRoot, item.evidence));
 
   const checkOutput = execFileSync(process.execPath, [
     path.join(skillRoot, 'scripts', 'check-render-output.mjs'),
@@ -284,6 +362,7 @@ for (const item of CASES) {
     sourceBytes: sourceBuffer.byteLength,
     artifactSha256: digest(artifactBuffer),
     sourceSha256: digest(sourceBuffer),
+    evidence: item.evidence ? `gallery/evidence/${item.evidence}` : null,
     checkCount: validation.checks.length,
     checksPassed,
     checks: validation.checks.map((check) => ({ name: check.name, ok: check.ok })),
@@ -319,6 +398,7 @@ const manifest = {
     artifactSha256: entry.artifactSha256,
     sourceBytes: entry.sourceBytes,
     sourceSha256: entry.sourceSha256,
+    evidence: entry.evidence,
     checks: entry.checks,
     composition: entry.composition,
   })),

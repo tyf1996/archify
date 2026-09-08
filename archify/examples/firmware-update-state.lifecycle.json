@@ -1,0 +1,53 @@
+{
+  "schema_version": 1,
+  "diagram_type": "lifecycle",
+  "execution_domains": [
+    { "id": "linux-update", "label": "Linux update domain", "environment": "linux", "processor": "application processor" }
+  ],
+  "meta": {
+    "title": "Firmware Update State",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "engineering_profile": "embedded-runtime",
+    "viewBox": [1080, 566],
+    "views": [
+      { "id": "main-path", "label": "Verified trial to confirmation", "focus": ["downloading", "verifying", "trial", "confirmed"], "note": "The lifecycle belongs to an image object, not a complete device state machine." },
+      { "id": "recovery-path", "label": "Verification and trial recovery", "focus": ["verifying", "trial", "rollback", "recovery"], "note": "Verification failure and trial rollback both arrive at explicit recovery." },
+      { "id": "evidence-gaps", "label": "Evidence gaps", "focus": ["verifying", "trial", "confirmed"], "note": "Signature scheme, trial threshold, bootloader behavior, and power-loss handling are unknown." }
+    ]
+  },
+  "lanes": [
+    { "id": "main", "label": "Image progression" },
+    { "id": "recovery", "label": "Recovery path" }
+  ],
+  "states": [
+    { "id": "downloading", "type": "start", "label": "Downloading", "sublabel": "image bytes in transit", "lane": "main", "col": 0, "step": "01" },
+    { "id": "verifying", "type": "active", "label": "Verifying", "sublabel": "acceptance check", "lane": "main", "col": 1, "step": "02" },
+    { "id": "trial", "type": "waiting", "label": "Trial", "sublabel": "await confirmation", "lane": "main", "col": 2, "step": "03" },
+    { "id": "confirmed", "type": "success", "label": "Confirmed", "sublabel": "image accepted", "lane": "main", "col": 3, "step": "04" },
+    { "id": "rollback", "type": "active", "label": "Rollback", "sublabel": "restore prior image", "lane": "recovery", "col": 1 },
+    { "id": "recovery", "type": "failure", "label": "Recovery", "sublabel": "requires recovery handling", "lane": "recovery", "col": 2 }
+  ],
+  "transitions": [
+    { "id": "downloading-verifying-complete", "from": "downloading", "to": "verifying", "label": "download complete", "mechanism": "data-transfer", "variant": "emphasis", "labelAt": [171, 96] },
+    { "id": "verifying-trial-accepted", "from": "verifying", "to": "trial", "label": "image accepted", "mechanism": "lifecycle-control", "variant": "emphasis", "labelAt": [325, 70] },
+    { "id": "trial-confirmed-confirm", "from": "trial", "to": "confirmed", "label": "confirm image", "mechanism": "lifecycle-control", "variant": "default", "labelAt": [479, 96] },
+    { "id": "verifying-recovery-failed", "from": "verifying", "to": "recovery", "label": "verification failed", "mechanism": "notification", "variant": "security", "fromSide": "bottom", "toSide": "left", "via": [[248, 240], [10, 240], [10, 370], [630, 370], [630, 307]], "labelAt": [95, 280] },
+    { "id": "trial-rollback-timeout", "from": "trial", "to": "rollback", "label": "confirmation timeout; threshold unknown", "mechanism": "lifecycle-control", "variant": "security", "fromSide": "bottom", "toSide": "top", "via": [[402, 245], [556, 245]], "labelAt": [480, 250] },
+    { "id": "rollback-recovery-complete", "from": "rollback", "to": "recovery", "label": "rollback complete", "mechanism": "lifecycle-control", "variant": "security", "fromSide": "bottom", "toSide": "bottom", "via": [[556, 370], [710, 370]], "labelAt": [633, 395] }
+  ],
+  "semanticChecks": {
+    "requiredRelations": [
+      { "from": "downloading", "to": "verifying", "mechanism": "data-transfer" },
+      { "from": "verifying", "to": "trial", "mechanism": "lifecycle-control" },
+      { "from": "trial", "to": "confirmed", "mechanism": "lifecycle-control" },
+      { "from": "verifying", "to": "recovery", "mechanism": "notification" },
+      { "from": "trial", "to": "rollback", "mechanism": "lifecycle-control" },
+      { "from": "rollback", "to": "recovery", "mechanism": "lifecycle-control" }
+    ]
+  },
+  "cards": [
+    { "dot": "cyan", "title": "Image lifecycle", "items": ["Confirmed is an image-object outcome", "Recovery is explicit without claiming a full boot-state model"] },
+    { "dot": "orange", "title": "Unknown facts", "items": ["Signature and confirmation criteria are unspecified", "No power-loss or safety guarantee is implied"] }
+  ]
+}
