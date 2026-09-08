@@ -75,7 +75,7 @@ test('future-path aliases follow the containing directory case and Unicode seman
   );
 });
 
-test('compare rejects case-only future targets before input work when the directory aliases case', () => {
+test('compare rejects case-only future targets for valid inputs when the directory aliases case', () => {
   const cwd = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-output-compare-case-'));
   const caseInsensitive = directoryAliasesNames(cwd, 'ArchifyCaseProbe', 'archifycaseprobe');
   const output = path.join(cwd, 'Future.HTML');
@@ -83,8 +83,8 @@ test('compare rejects case-only future targets before input work when the direct
 
   const result = run([
     'compare', 'architecture',
-    path.join(cwd, 'missing-base.json'),
-    path.join(cwd, 'missing-head.json'),
+    baseFixture,
+    headFixture,
     output,
     '--receipt', receiptPath,
     '--json',
@@ -504,6 +504,7 @@ console.log(JSON.stringify({
 `);
   fs.writeFileSync(path.join(installedDelta, 'architecture-delta.mjs'), `
 export class ArchitectureDeltaError extends Error {}
+export const assertArchitectureEmbeddedCompareSupported = () => {};
 export const annotateArchitectureSideSvg = (svg) => svg;
 export const buildDeltaSvg = () => '<svg role="img"></svg>';
 export const canonicalArchitecture = (value) => value;

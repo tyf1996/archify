@@ -1,0 +1,54 @@
+{
+  "schema_version": 2,
+  "diagram_type": "workflow",
+  "execution_domains": [
+    { "id": "bare-firmware", "label": "Bare firmware", "environment": "bare-metal", "processor": "single MCU core" }
+  ],
+  "meta": {
+    "title": "Bare-metal Boot and Safe State",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "engineering_profile": "embedded-runtime",
+    "viewBox": [1229, 560],
+    "views": [
+      { "id": "main-path", "label": "Boot to main loop", "focus": ["reset", "runtimeInit", "boardInit", "calibrate", "mainLoop"], "note": "Initialization and calibration remain explicit before the foreground loop." },
+      { "id": "recovery-path", "label": "Board-init timeout", "focus": ["boardInit", "safeState"], "note": "A timeout moves the fixture to a safe state; it does not assert a duration." },
+      { "id": "evidence-gaps", "label": "Evidence gaps", "focus": ["calibrate", "mainLoop", "safeState"], "note": "Clock source, calibration target, and timeout threshold are intentionally unknown." }
+    ]
+  },
+  "lanes": [
+    { "id": "boot", "label": "Boot sequence" },
+    { "id": "recovery", "label": "Recovery", "variant": "exception" }
+  ],
+  "mainPath": ["reset", "runtimeInit", "boardInit", "calibrate", "mainLoop"],
+  "nodes": [
+    { "id": "reset", "lane": "boot", "col": 0, "type": "software", "label": "Reset handler", "sublabel": "vector entry", "execution_domain": "bare-firmware", "execution_context": "boot", "width": 132 },
+    { "id": "runtimeInit", "lane": "boot", "col": 1, "type": "software", "label": "Runtime init", "sublabel": "memory and C runtime", "execution_domain": "bare-firmware", "execution_context": "boot", "width": 142 },
+    { "id": "boardInit", "lane": "boot", "col": 2, "type": "software", "label": "Board init", "sublabel": "board peripherals", "execution_domain": "bare-firmware", "width": 135 },
+    { "id": "calibrate", "lane": "boot", "col": 3, "type": "software", "label": "Calibrate", "sublabel": "required calibration", "execution_domain": "bare-firmware", "width": 135 },
+    { "id": "mainLoop", "lane": "boot", "col": 4, "type": "software", "label": "Main loop", "sublabel": "foreground control", "execution_domain": "bare-firmware", "width": 135 },
+    { "id": "safeState", "lane": "recovery", "col": 3, "type": "software", "label": "Safe state", "sublabel": "hold outputs safe", "execution_domain": "bare-firmware", "width": 135 }
+  ],
+  "edges": [
+    { "id": "reset-runtimeInit-enter", "from": "reset", "to": "runtimeInit", "label": "enter runtime", "mechanism": "call", "role": "main" },
+    { "id": "runtimeInit-boardInit-initialize", "from": "runtimeInit", "to": "boardInit", "label": "initialize board", "mechanism": "call", "role": "main" },
+    { "id": "boardInit-calibrate-ready", "from": "boardInit", "to": "calibrate", "label": "board ready", "mechanism": "call", "role": "main" },
+    { "id": "calibrate-mainLoop-complete", "from": "calibrate", "to": "mainLoop", "label": "calibration complete", "mechanism": "call", "role": "main" },
+    { "id": "boardInit-safeState-timeout", "from": "boardInit", "to": "safeState", "label": "initialization timeout", "mechanism": "lifecycle-control", "variant": "security", "role": "error" }
+  ],
+  "semanticChecks": {
+    "allowedRoots": ["reset"],
+    "allowedTerminals": ["mainLoop", "safeState"],
+    "requiredRelations": [
+      { "from": "reset", "to": "runtimeInit", "mechanism": "call" },
+      { "from": "runtimeInit", "to": "boardInit", "mechanism": "call" },
+      { "from": "boardInit", "to": "calibrate", "mechanism": "call" },
+      { "from": "calibrate", "to": "mainLoop", "mechanism": "call" },
+      { "from": "boardInit", "to": "safeState", "mechanism": "lifecycle-control" }
+    ]
+  },
+  "cards": [
+    { "dot": "emerald", "title": "Boot contract", "items": ["Calibration is a required step before the main loop", "This design fixture does not name a board or MCU"] },
+    { "dot": "orange", "title": "Unknown facts", "items": ["Timeout threshold is unknown", "Safe output values require hardware-specific evidence"] }
+  ]
+}

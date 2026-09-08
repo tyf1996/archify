@@ -1,0 +1,49 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "execution_domains": [
+    { "id": "rtos-control", "label": "RTOS control core", "environment": "rtos", "processor": "control core" },
+    { "id": "linux-service", "label": "Linux service core", "environment": "linux", "processor": "application core" }
+  ],
+  "meta": {
+    "title": "Embedded Runtime Map",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "engineering_profile": "embedded-runtime",
+    "views": [
+      { "id": "main-path", "label": "Sensor to Linux service", "focus": ["sensor", "controlTask", "sharedBuffer", "linuxService"], "note": "A vendor-neutral design fixture; the data handoff and notification remain distinct." },
+      { "id": "recovery-path", "label": "Watchdog recovery", "focus": ["watchdog", "controlTask", "sharedBuffer"], "note": "The watchdog requests recovery control; it does not prove a scheduling or timing bound." },
+      { "id": "evidence-gaps", "label": "Evidence gaps", "focus": ["controlTask", "sharedBuffer", "linuxService"], "note": "Priority, cache ownership, buffer size, and latency budget are unknown for this design fixture." }
+    ]
+  },
+  "components": [
+    { "id": "sensor", "type": "hardware", "label": "Sensor peripheral", "sublabel": "sample source", "execution_domain": "rtos-control", "execution_context": "hardware", "pos": [40, 250], "size": [145, 64] },
+    { "id": "controlTask", "type": "task", "label": "Control task", "sublabel": "RTOS task", "execution_domain": "rtos-control", "execution_context": "rtos-task", "pos": [265, 250], "size": [145, 64] },
+    { "id": "sharedBuffer", "type": "buffer", "label": "Shared buffer", "sublabel": "ownership unspecified", "execution_domain": "rtos-control", "execution_context": "unknown", "pos": [490, 250], "size": [155, 64] },
+    { "id": "linuxService", "type": "process", "label": "Linux service", "sublabel": "user-space consumer", "execution_domain": "linux-service", "execution_context": "linux-user", "pos": [750, 250], "size": [155, 64] },
+    { "id": "watchdog", "type": "hardware", "label": "Watchdog", "sublabel": "recovery request", "execution_domain": "rtos-control", "execution_context": "hardware", "pos": [265, 400], "size": [145, 64] }
+  ],
+  "boundaries": [
+    { "kind": "execution-domain", "label": "RTOS control core", "wraps": ["sensor", "controlTask", "sharedBuffer", "watchdog"], "pad": 18 },
+    { "kind": "execution-domain", "label": "Linux service core", "wraps": ["linuxService"], "pad": 18 }
+  ],
+  "connections": [
+    { "id": "sensor-controlTask-sample", "from": "sensor", "to": "controlTask", "label": "IRQ-triggered handoff; ISR/read omitted", "mechanism": "irq", "variant": "emphasis", "labelAt": [225, 175] },
+    { "id": "controlTask-sharedBuffer-produce", "from": "controlTask", "to": "sharedBuffer", "label": "produce sample", "mechanism": "shared-memory", "variant": "default", "labelAt": [450, 340] },
+    { "id": "sharedBuffer-linuxService-consume", "from": "sharedBuffer", "to": "linuxService", "label": "consume shared sample", "mechanism": "shared-memory", "variant": "emphasis", "labelAt": [698, 340] },
+    { "id": "controlTask-linuxService-notify", "from": "controlTask", "to": "linuxService", "label": "cross-core mailbox notify", "mechanism": "notification", "variant": "dashed", "fromSide": "top", "toSide": "top", "via": [[337.5, 185], [827.5, 185]], "labelAt": [580, 160] },
+    { "id": "watchdog-controlTask-recover", "from": "watchdog", "to": "controlTask", "label": "request recovery", "mechanism": "lifecycle-control", "variant": "security", "route": "orthogonal-v" }
+  ],
+  "semanticChecks": {
+    "requiredRelations": [
+      { "from": "sensor", "to": "controlTask", "mechanism": "irq" },
+      { "from": "controlTask", "to": "sharedBuffer", "mechanism": "shared-memory" },
+      { "from": "sharedBuffer", "to": "linuxService", "mechanism": "shared-memory" },
+      { "from": "watchdog", "to": "controlTask", "mechanism": "lifecycle-control" }
+    ]
+  },
+  "cards": [
+    { "dot": "cyan", "title": "Declared mechanisms", "items": ["The mailbox notification is distinct from shared-buffer access", "The fixture does not claim cache coherency or zero-copy"] },
+    { "dot": "orange", "title": "Evidence gaps", "items": ["Task priority and deadline are unknown", "Buffer capacity and ownership protocol require project evidence"] }
+  ]
+}

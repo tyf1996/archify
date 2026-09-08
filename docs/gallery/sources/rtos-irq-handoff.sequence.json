@@ -1,0 +1,51 @@
+{
+  "schema_version": 1,
+  "diagram_type": "sequence",
+  "execution_domains": [
+    { "id": "rtos-control", "label": "RTOS control domain", "environment": "rtos", "processor": "control core" }
+  ],
+  "meta": {
+    "title": "RTOS IRQ Handoff",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "engineering_profile": "embedded-runtime",
+    "column_fit": "spread",
+    "viewBox": [930, 540],
+    "views": [
+      { "id": "main-path", "label": "IRQ to worker", "focus": ["peripheral", "isr", "queue", "worker"], "note": "Message order is logical source order, not a measured time scale." },
+      { "id": "recovery-path", "label": "Queue-full recovery", "focus": ["isr", "queue", "recovery"], "note": "The full-queue path is separate from worker consumption." },
+      { "id": "evidence-gaps", "label": "Evidence gaps", "focus": ["isr", "queue", "worker"], "note": "IRQ priority, queue depth, deadline, and wake-up latency are unknown." }
+    ]
+  },
+  "participants": [
+    { "id": "peripheral", "type": "hardware", "label": "Peripheral", "sublabel": "sample-ready source", "execution_domain": "rtos-control", "execution_context": "hardware" },
+    { "id": "isr", "type": "isr", "label": "ISR", "sublabel": "interrupt context", "execution_domain": "rtos-control", "execution_context": "rtos-isr" },
+    { "id": "queue", "type": "buffer", "label": "Queue", "sublabel": "sample handoff", "execution_domain": "rtos-control" },
+    { "id": "worker", "type": "task", "label": "Worker task", "sublabel": "deferred processing", "execution_domain": "rtos-control", "execution_context": "rtos-task" },
+    { "id": "recovery", "type": "software", "label": "Recovery handler", "sublabel": "full-queue handling", "execution_domain": "rtos-control", "execution_context": "rtos-task" }
+  ],
+  "segments": [
+    { "from": 200, "to": 245, "label": "Non-blocking enqueue attempt" },
+    { "from": 260, "to": 315, "label": "Rejected branch (mutually exclusive)" },
+    { "from": 335, "to": 430, "label": "Accepted branch (worker later scheduled)" }
+  ],
+  "messages": [
+    { "id": "peripheral-isr-assert", "from": "peripheral", "to": "isr", "y": 180, "label": "assert sample IRQ", "mechanism": "irq", "variant": "emphasis" },
+    { "id": "isr-queue-enqueue", "from": "isr", "to": "queue", "y": 235, "label": "try non-blocking enqueue", "mechanism": "task-sync", "variant": "default" },
+    { "id": "queue-recovery-full", "from": "queue", "to": "recovery", "y": 295, "label": "[rejected: full] request recovery", "mechanism": "notification", "variant": "security" },
+    { "id": "queue-worker-dequeue", "from": "queue", "to": "worker", "y": 355, "label": "[accepted; later scheduled] receive sample", "mechanism": "task-sync", "variant": "emphasis" },
+    { "id": "worker-peripheral-complete", "from": "worker", "to": "peripheral", "y": 415, "label": "[accepted path] processing complete", "mechanism": "notification", "variant": "return" }
+  ],
+  "semanticChecks": {
+    "requiredRelations": [
+      { "from": "peripheral", "to": "isr", "mechanism": "irq" },
+      { "from": "isr", "to": "queue", "mechanism": "task-sync" },
+      { "from": "queue", "to": "worker", "mechanism": "task-sync" },
+      { "from": "queue", "to": "recovery", "mechanism": "notification" }
+    ]
+  },
+  "cards": [
+    { "dot": "cyan", "title": "Handoff semantics", "items": ["ISR makes a non-blocking enqueue attempt; accepted and full branches are mutually exclusive", "Worker consumption follows accepted enqueue and later scheduling; segments are reading groups, not an alt engine"] },
+    { "dot": "orange", "title": "Unknown facts", "items": ["Queue capacity and overflow policy are not measured", "No priority or schedulability claim is made"] }
+  ]
+}

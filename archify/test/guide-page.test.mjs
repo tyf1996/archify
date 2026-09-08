@@ -46,8 +46,17 @@ test('guide page: ships bilingual recipes and syntactically valid interaction co
   const dataMatch = html.match(/<script id="guide-data" type="application\/json">([\s\S]*?)<\/script>/);
   assert.ok(dataMatch);
   const data = JSON.parse(dataMatch[1]);
-  assert.equal(data.length, 11);
-  assert.equal(data.filter((recipe) => recipe.type === 'workflow').length, 3);
+  assert.equal(data.length, 16);
+  assert.deepEqual(
+    Object.fromEntries(['architecture', 'workflow', 'sequence', 'dataflow', 'lifecycle'].map((type) => [
+      type,
+      data.filter((recipe) => recipe.type === type).length,
+    ])),
+    { architecture: 3, workflow: 4, sequence: 3, dataflow: 3, lifecycle: 3 },
+  );
+  for (const id of ['embedded-runtime-map', 'bare-metal-boot', 'rtos-irq-handoff', 'linux-device-data-path', 'firmware-update-state']) {
+    assert.ok(data.some((recipe) => recipe.id === id), `${id}: missing embedded guide recipe`);
+  }
   assert.ok(data.every((recipe) => recipe.en.prompt && recipe.zh.prompt && recipe.proof));
   assert.match(html, /gallery\.html#proof-/);
   assert.match(html, /Open verified example/);

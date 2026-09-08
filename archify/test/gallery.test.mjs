@@ -65,6 +65,7 @@ test('generated proof gallery matches its sources, receipts, and checked-in arti
     assert.equal(entry.evidence, expected.evidence);
     assert.equal(entry.view, 'main-path');
     assert.deepEqual(entry.viewIds, ['main-path', 'recovery-path', 'evidence-gaps']);
+    assert.equal(entry.engineeringProfile, 'embedded-runtime');
   }
 
   const workflow = manifest.entries.find((entry) => entry.id === 'agent-tool-call');
@@ -75,7 +76,8 @@ test('generated proof gallery matches its sources, receipts, and checked-in arti
 
   const deployment = manifest.entries.find((entry) => entry.id === 'deployment-ownership');
   assert.equal(deployment.engineeringProfile, 'deployment-ownership');
-  assert.ok(manifest.entries.filter((entry) => entry.id !== 'deployment-ownership')
+  const profiledProofs = new Set(['deployment-ownership', ...Object.keys(embeddedProofs)]);
+  assert.ok(manifest.entries.filter((entry) => !profiledProofs.has(entry.id))
     .every((entry) => entry.engineeringProfile === null));
 
   for (const entry of manifest.entries) {
@@ -118,6 +120,7 @@ test('generated proof gallery matches its sources, receipts, and checked-in arti
   assert.match(html, /Composition<\/span><span class="receipt-value ok" title="0 crossings · 0 border runs · 0 micro segments · 0 cramped turns">SHOWCASE · PASS/);
   assert.match(html, /Engineering profile/);
   assert.match(html, /DEPLOYMENT OWNERSHIP · PASS/);
+  assert.equal((html.match(/EMBEDDED RUNTIME · PASS/g) || []).length, 5);
   assert.match(html, /<link rel="stylesheet" href="assets\/site-navigation\.css">/);
   assert.match(
     fs.readFileSync(path.join(generatedRoot, 'assets/site-navigation.css'), 'utf8'),

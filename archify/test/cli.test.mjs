@@ -159,7 +159,10 @@ test('cli: guide lists all scenario recipes by diagram type', () => {
   const result = run(['guide']);
 
   assert.equal(result.status, 0, result.stderr);
-  assert.match(result.stdout, /Archify scenario recipes \(11\)/);
+  assert.match(result.stdout, /Archify scenario recipes \(16\)/);
+  for (const id of ['embedded-runtime-map', 'bare-metal-boot', 'rtos-irq-handoff', 'linux-device-data-path', 'firmware-update-state']) {
+    assert.match(result.stdout, new RegExp(`^${id}  `, 'm'));
+  }
   for (const type of ['architecture', 'workflow', 'sequence', 'dataflow', 'lifecycle']) {
     assert.match(result.stdout, new RegExp(`\\[${type}\\]`));
   }

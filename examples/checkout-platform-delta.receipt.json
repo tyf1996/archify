@@ -93,12 +93,14 @@
         "base": {
           "from": "orders",
           "to": "payments",
-          "label": "authorize"
+          "label": "authorize",
+          "mechanism": ""
         },
         "head": {
           "from": "fraud",
           "to": "payments",
-          "label": "authorize"
+          "label": "authorize",
+          "mechanism": ""
         },
         "status": "changed",
         "classifications": [
@@ -117,7 +119,8 @@
         "head": {
           "from": "checkout",
           "to": "fraud",
-          "label": "screen"
+          "label": "screen",
+          "mechanism": ""
         },
         "status": "added",
         "classifications": [
@@ -130,12 +133,14 @@
         "base": {
           "from": "checkout",
           "to": "orders",
-          "label": "SQL"
+          "label": "SQL",
+          "mechanism": ""
         },
         "head": {
           "from": "checkout",
           "to": "orders",
-          "label": "SQL tx"
+          "label": "SQL tx",
+          "mechanism": ""
         },
         "status": "changed",
         "classifications": [
@@ -150,12 +155,14 @@
         "base": {
           "from": "checkout",
           "to": "queue",
-          "label": "accepted"
+          "label": "accepted",
+          "mechanism": ""
         },
         "head": {
           "from": "checkout",
           "to": "queue",
-          "label": "accepted"
+          "label": "accepted",
+          "mechanism": ""
         },
         "status": "rerouted",
         "classifications": [
@@ -170,7 +177,8 @@
         "base": {
           "from": "checkout",
           "to": "cache",
-          "label": "session"
+          "label": "session",
+          "mechanism": ""
         },
         "status": "removed",
         "classifications": [
@@ -219,8 +227,8 @@
     "Boundary identity is conservatively derived from kind + label."
   ],
   "artifact": {
-    "sha256": "4dfa76443ff644609ff0a4f7e6117a4a5d977a57db63258417d192f9f8072293",
-    "bytes": 2213635
+    "sha256": "727c7ffa851ae929b9489f71f4e6fe6a49ef4cc7d7413cb9fedbb581882fc98b",
+    "bytes": 2226787
   },
   "validation": {
     "checksPassed": 28,
