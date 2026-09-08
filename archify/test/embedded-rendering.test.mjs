@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -10,6 +10,19 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const skillRoot = path.resolve(__dirname, '..');
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'archify-embedded-rendering-'));
 let sequence = 0;
+
+function validate(type, document) {
+  const id = sequence++;
+  const input = path.join(tmp, `${id}.${type}.json`);
+  fs.writeFileSync(input, JSON.stringify(document));
+  const result = spawnSync(process.execPath, [
+    path.join(skillRoot, 'bin/archify.mjs'), 'validate', type, input, '--quality', 'showcase', '--json',
+  ], { cwd: skillRoot, encoding: 'utf8' });
+  return {
+    ...result,
+    receipt: result.stdout.trim() ? JSON.parse(result.stdout) : null,
+  };
+}
 
 function render(type, document) {
   const id = sequence++;
@@ -257,9 +270,78 @@ test('Lifecycle renders execution domains as a measured document caption without
     label: `Execution domain ${index}`,
     environment: index % 2 ? 'rtos' : 'linux',
   }));
-  assert.throws(() => render('lifecycle', crowded), /Execution-domain caption needs/);
+  assert.throws(() => render('lifecycle', crowded), /fixed band layout and .*execution-domain caption/);
   crowded.meta.viewBox[1] = 640;
   assert.match(svg(render('lifecycle', crowded)), /data-execution-domain-id="domain-7"/);
+});
+
+test('Lifecycle rejects transition labels and routes that cross measured execution-domain caption text', () => {
+  const base = {
+    schema_version: 1,
+    diagram_type: 'lifecycle',
+    meta: { title: 'Caption collision', viewBox: [720, 660], quality_profile: 'showcase' },
+    execution_domains: [{ id: 'linux', label: 'DomainNeedle', environment: 'linux' }],
+    lanes: [{ id: 'main', label: 'Main' }],
+    states: [
+      { id: 'a', type: 'active', label: 'A', lane: 'main', col: 0 },
+      { id: 'b', type: 'success', label: 'B', lane: 'main', col: 2 },
+    ],
+    transitions: [{ id: 'ab', from: 'a', to: 'b', label: 'TransitionNeedle', labelAt: [140, 576] }],
+  };
+  const labelCollision = validate('lifecycle', base);
+  assert.notEqual(labelCollision.status, 0);
+  const labelDiagnostic = labelCollision.receipt.diagnostics.find((entry) => entry.code === 'lifecycle/caption-label-overlap');
+  assert.ok(labelDiagnostic);
+  assert.match(labelDiagnostic.supportedFixes.join(' '), /increase meta\.viewBox\[1\].*labelAt/);
+
+  const routeCollisionDocument = structuredClone(base);
+  routeCollisionDocument.execution_domains[0].label = 'Firmware execution and recovery domain';
+  routeCollisionDocument.transitions = [{
+    id: 'ab',
+    from: 'a',
+    to: 'b',
+    label: 'Recovery',
+    route: 'bottom-channel',
+    channelY: 576,
+    fromSide: 'bottom',
+    toSide: 'bottom',
+  }];
+  const routeCollision = validate('lifecycle', routeCollisionDocument);
+  assert.notEqual(routeCollision.status, 0);
+  const routeDiagnostic = routeCollision.receipt.diagnostics.find((entry) => entry.code === 'lifecycle/caption-route-overlap');
+  assert.ok(routeDiagnostic);
+  assert.match(routeDiagnostic.supportedFixes.join(' '), /increase meta\.viewBox\[1\].*channelX\/channelY/);
+});
+
+test('Lifecycle execution-domain height guidance is sufficient when applied without another repair', () => {
+  const document = {
+    schema_version: 1,
+    diagram_type: 'lifecycle',
+    meta: { title: 'Caption guidance', viewBox: [720, 566], quality_profile: 'showcase' },
+    execution_domains: Array.from({ length: 8 }, (_, index) => ({
+      id: `domain${index}`,
+      label: `Execution domain ${index}`,
+      environment: index % 2 ? 'rtos' : 'linux',
+    })),
+    lanes: [{ id: 'main', label: 'Main' }],
+    states: [
+      { id: 'a', type: 'active', label: 'A', lane: 'main', col: 0 },
+      { id: 'b', type: 'success', label: 'B', lane: 'main', col: 2 },
+    ],
+    transitions: [{ id: 'ab', from: 'a', to: 'b', label: 'TransitionNeedle' }],
+  };
+  const initial = validate('lifecycle', document);
+  assert.notEqual(initial.status, 0);
+  const heightDiagnostic = initial.receipt.diagnostics.find((entry) => /viewBox height .*too short/.test(entry.message));
+  assert.ok(heightDiagnostic);
+  const suggested = Number(heightDiagnostic.message.match(/at least (\d+)/)?.[1]);
+  assert.equal(suggested, 576);
+  assert.doesNotMatch(initial.receipt.diagnostics.map((entry) => entry.message).join('\n'), /at least 566/);
+
+  document.meta.viewBox[1] = suggested;
+  const repaired = validate('lifecycle', document);
+  assert.equal(repaired.status, 0, repaired.stdout || repaired.stderr);
+  assert.equal(repaired.receipt.ok, true);
 });
 
 test('embedded implicit legends stay semantic across renderers while hidden remains explicit', () => {

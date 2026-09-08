@@ -2,7 +2,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { esc, renderDefinitions, renderSemanticSigil, textUnits } from '../shared/utils.mjs';
 import { animateAttr, focusEdgeAttrs, focusNodeAttrs, focusNodeTitle, loadDiagramWithBrandMarks, writeDiagram, svgAccessibleText, svgRootAttrs } from '../shared/cli.mjs';
-import { throwDiagnosticProblems } from '../shared/diagnostics.mjs';
+import { recordDiagnostic, throwDiagnosticProblems } from '../shared/diagnostics.mjs';
 import { legendFootprint, resolveLegend, renderLegend as renderResolvedLegend } from '../shared/legend.mjs';
 import { availableNodeTextWidth, fittedNodeFontSize, minimumNodeTextWidth } from '../shared/text-fit.mjs';
 import { brandLabelFitWidth, brandMarkFor, brandMetadataFor, brandTopRailProblem, renderBrandMark } from '../shared/brand-marks.mjs';
@@ -12,6 +12,7 @@ import {
   asArray,
   isFinitePoint,
   rectsOverlap,
+  segmentIntersectsRect,
   cleanEndpointSideProblems,
   cleanFlowProblems,
   cleanCrossingProblems,
@@ -102,6 +103,10 @@ const lifecycleLegendEntries = resolveLegend(
 );
 const lifecycleLegendFootprint = legendFootprint(lifecycleLegendEntries, { width: viewBox[0] - 80 });
 
+const LEGACY_MIN_VIEWBOX_HEIGHT = 566;
+const LIFECYCLE_AREA_MIN_BOTTOM = 444;
+const EXECUTION_DOMAIN_CAPTION_MIN_TOP = LIFECYCLE_AREA_MIN_BOTTOM + 8;
+
 function legendY() {
   return viewBox[1] - 36;
 }
@@ -114,6 +119,14 @@ function lifecycleAreaBottom() {
   return executionDomainLayout
     ? Math.min(legacyBottom, executionDomainLayout.topY - 8)
     : legacyBottom;
+}
+
+function requiredLifecycleViewBoxHeight() {
+  if (!executionDomainLayout) return LEGACY_MIN_VIEWBOX_HEIGHT;
+  return Math.max(
+    LEGACY_MIN_VIEWBOX_HEIGHT,
+    Math.ceil(viewBox[1] + EXECUTION_DOMAIN_CAPTION_MIN_TOP - executionDomainLayout.topY),
+  );
 }
 
 // Lane semantics are fixed: lane id "main" maps to the top phase band, lane id
@@ -181,13 +194,45 @@ const executionDomainLayout = (() => {
   const rowGap = 14;
   const height = 20 + packed.rows.length * rowGap;
   const legendTopY = legendY() - lifecycleLegendFootprint.extraHeight - 30;
+  const topY = legendTopY - 10 - height;
+  const caption = i18nText(lifecycle.meta.locale, 'embedded.domains.caption');
+  const titleBaseline = topY + 10;
+  const titleRect = {
+    id: 'execution-domains-title',
+    label: caption,
+    x,
+    y: titleBaseline - 10,
+    width: Math.ceil(textUnits(caption) * 8 * 0.62),
+    height: 12,
+  };
+  const entries = [];
+  packed.rows.forEach((row, rowIndex) => {
+    let entryX = x;
+    const baseline = topY + 26 + rowIndex * rowGap;
+    for (const entry of row) {
+      entries.push({
+        ...entry,
+        id: `execution-domain-${entry.domain.id}`,
+        x: entryX,
+        baseline,
+        y: baseline - 10,
+        height: 12,
+      });
+      entryX += entry.width + packed.itemGap;
+    }
+  });
   return {
     ...packed,
+    caption,
     x,
     width,
     rowGap,
     height,
-    topY: legendTopY - 10 - height,
+    topY,
+    titleBaseline,
+    titleRect,
+    entries,
+    obstacles: [titleRect, ...entries],
   };
 })();
 
@@ -209,9 +254,13 @@ function validateLifecycle() {
   if (states.size !== asArray(lifecycle.states).length) problems.push('State ids must be unique.');
 
   // The three bands are fixed at y=112/264/436. Preserve the original
-  // outcome/legend reserve even though measured legend rows now sit lower.
-  if (lifecycleAreaBottom() + 4 < 448) {
-    problems.push(`viewBox height ${viewBox[1]} is too short for the fixed band layout — set meta.viewBox[1] to at least 566.`);
+  // outcome/legend reserve and, when present, the complete measured domain caption.
+  const requiredHeight = requiredLifecycleViewBoxHeight();
+  if (viewBox[1] < requiredHeight || lifecycleAreaBottom() < LIFECYCLE_AREA_MIN_BOTTOM) {
+    const reservedContent = executionDomainLayout
+      ? `the fixed band layout and ${executionDomainLayout.rows.length}-row execution-domain caption`
+      : 'the fixed band layout';
+    problems.push(`viewBox height ${viewBox[1]} is too short for ${reservedContent} — set meta.viewBox[1] to at least ${requiredHeight}.`);
   }
 
   if (executionDomainLayout) {
@@ -219,10 +268,6 @@ function validateLifecycle() {
     if (tooWide) {
       const requiredWidth = Math.ceil(tooWide.width + executionDomainLayout.x * 2);
       problems.push(`Execution domain "${tooWide.domain.id}" label and environment need ${tooWide.width}px, but the document caption provides ${executionDomainLayout.width}px — shorten the domain label or increase meta.viewBox[0] to at least ${requiredWidth}.`);
-    }
-    if (executionDomainLayout.topY < 448) {
-      const requiredHeight = Math.ceil(viewBox[1] + 448 - executionDomainLayout.topY);
-      problems.push(`Execution-domain caption needs ${executionDomainLayout.rows.length} rows above the legend — increase meta.viewBox[1] to at least ${requiredHeight}.`);
     }
   }
 
@@ -324,6 +369,34 @@ function validateLifecycle() {
     obstacleKind: 'state',
     routeHint: 'adjust fromSide/toSide, set route/via or channelX/channelY, or move the state with col/yOffset'
   }));
+  if (executionDomainLayout) {
+    for (const [transitionIndex, transition] of asArray(lifecycle.transitions).entries()) {
+      if (!states.has(transition.from) || !states.has(transition.to)) continue;
+      const points = pathFor(transition).points;
+      let collision = null;
+      for (const obstacle of executionDomainLayout.obstacles) {
+        for (let segmentIndex = 0; segmentIndex < points.length - 1; segmentIndex += 1) {
+          if (segmentIntersectsRect({ start: points[segmentIndex], end: points[segmentIndex + 1] }, obstacle, 2)) {
+            collision = { obstacle, segmentIndex };
+            break;
+          }
+        }
+        if (collision) break;
+      }
+      if (!collision) continue;
+      const fix = 'increase meta.viewBox[1], or adjust route/via, channelX/channelY, or endpoint sides so the transition clears the execution-domain caption';
+      const message = `Transition "${transition.label || `${transition.from}->${transition.to}`}" crosses execution-domain caption "${collision.obstacle.label}" on segment ${collision.segmentIndex} — ${fix}.`;
+      recordDiagnostic({
+        code: 'lifecycle/caption-route-overlap',
+        severity: 'error',
+        message,
+        subject: { diagramType: 'lifecycle', collection: 'transitions', index: transitionIndex, id: transition.id, path: `/transitions/${transitionIndex}` },
+        evidence: { captionId: collision.obstacle.id, segmentIndex: collision.segmentIndex, clearancePx: 2 },
+        supportedFixes: [fix],
+      });
+      problems.push(message);
+    }
+  }
   problems.push(...cleanCrossingProblems({
     relations: lifecycle.transitions,
     endpointIds: new Set(states.keys()),
@@ -373,6 +446,23 @@ function validateLifecycle() {
     const width = Math.max(32, longestLine * 4.9 + 12);
     const height = transition.note ? 27 : 16;
     labelRects.push({ relation: transition, relationIndex: transitionIndex, label: displayLabel, x: lx - width / 2, y: ly - 11, width, height, lx, ly });
+  }
+  if (executionDomainLayout) {
+    for (const rect of labelRects) {
+      const caption = executionDomainLayout.obstacles.find((obstacle) => rectsOverlap(rect, obstacle, -2));
+      if (!caption) continue;
+      const fix = 'increase meta.viewBox[1], or adjust labelAt/labelDx/labelDy/labelSegment so the transition label clears the execution-domain caption';
+      const message = `Label "${rect.label}" overlaps execution-domain caption "${caption.label}" — ${fix}.`;
+      recordDiagnostic({
+        code: 'lifecycle/caption-label-overlap',
+        severity: 'error',
+        message,
+        subject: { diagramType: 'lifecycle', collection: 'transitions', index: rect.relationIndex, id: rect.relation.id, path: `/transitions/${rect.relationIndex}/labelAt` },
+        evidence: { captionId: caption.id, labelRect: { x: rect.x, y: rect.y, width: rect.width, height: rect.height } },
+        supportedFixes: [fix],
+      });
+      problems.push(message);
+    }
   }
   for (const rect of labelRects) {
     for (const state of states.values()) {
@@ -570,18 +660,12 @@ function renderTransitionLabel(transition, index) {
 
 function renderExecutionDomains() {
   if (!executionDomainLayout) return '';
-  const caption = i18nText(lifecycle.meta.locale, 'embedded.domains.caption');
-  const rows = executionDomainLayout.rows.map((row, rowIndex) => {
-    let x = executionDomainLayout.x;
-    return row.map((entry) => {
-      const rendered = `        <text data-execution-domain-id="${esc(entry.domain.id)}" data-execution-domain-environment="${esc(entry.domain.environment)}" x="${x}" y="${executionDomainLayout.topY + 26 + rowIndex * executionDomainLayout.rowGap}" class="t-dim" font-size="8">${esc(entry.label)}</text>`;
-      x += entry.width + executionDomainLayout.itemGap;
-      return rendered;
-    }).join('\n');
-  }).join('\n');
+  const entries = executionDomainLayout.entries.map((entry) => (
+    `        <text data-execution-domain-id="${esc(entry.domain.id)}" data-execution-domain-environment="${esc(entry.domain.environment)}" x="${entry.x}" y="${entry.baseline}" class="t-dim" font-size="8">${esc(entry.label)}</text>`
+  )).join('\n');
   return `        <g data-detail="context" data-execution-domains="">
-          <text x="${executionDomainLayout.x}" y="${executionDomainLayout.topY + 10}" class="t-muted" font-size="8" font-weight="700">${esc(caption)}</text>
-${rows}
+          <text x="${executionDomainLayout.x}" y="${executionDomainLayout.titleBaseline}" class="t-muted" font-size="8" font-weight="700">${esc(executionDomainLayout.caption)}</text>
+${entries}
         </g>`;
 }
 
