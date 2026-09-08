@@ -48,6 +48,9 @@
         "quality_profile": {
           "$ref": "common.schema.json#/$defs/qualityProfile"
         },
+        "engineering_profile": {
+          "enum": ["embedded-runtime"]
+        },
         "views": {
           "$ref": "common.schema.json#/$defs/guidedViews"
         },
@@ -88,6 +91,17 @@
           "minItems": 2,
           "maxItems": 2
         }
+      }
+    },
+    "execution_domains": {
+      "$ref": "common.schema.json#/$defs/executionDomains"
+    },
+    "semanticChecks": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "requiredRelations": { "$ref": "common.schema.json#/$defs/requiredRelations" }
       }
     },
     "lanes": {
@@ -203,6 +217,9 @@
           },
           "note": {
             "type": "string"
+          },
+          "mechanism": {
+            "$ref": "common.schema.json#/$defs/mechanism"
           },
           "variant": {
             "$ref": "common.schema.json#/$defs/variant"

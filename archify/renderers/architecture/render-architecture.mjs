@@ -9,6 +9,15 @@ import { availableNodeTextWidth, fittedNodeFontSize, minimumNodeTextWidth } from
 import { brandLabelFitWidth, brandMetadataFor, brandTopRailProblem, renderBrandMark } from '../shared/brand-marks.mjs';
 import { minimumReadableSourceTextPx } from '../shared/desktop-readability.mjs';
 import { translateMessage as i18nText } from '../shared/i18n.mjs';
+import {
+  EMBEDDED_COMPONENT_TYPES,
+  embeddedNodeDetail,
+  embeddedNodeMetadata,
+  embeddedNodeMinimumHeight,
+  hasEmbeddedComponentTypes,
+  relationDisplayLabel,
+  relationMechanismLabel,
+} from '../shared/embedded.mjs';
 import { gridLayout, resolveComponentPos, validateGridPlacement } from './grid.mjs';
 import {
   asArray,
@@ -79,7 +88,7 @@ const layout = {
   legendH: 28,
 };
 
-const LEGEND_CATALOG = [
+const LEGACY_LEGEND_KINDS = [
   'frontend',
   'backend',
   'database',
@@ -87,13 +96,24 @@ const LEGEND_CATALOG = [
   'security',
   'messagebus',
   'external',
-].map((kind) => ({ kind, label: i18nText(arch.meta.locale, `legend.architecture.${kind}`) }));
+];
+const LEGEND_CATALOG = [
+  ...LEGACY_LEGEND_KINDS.map((kind) => ({ kind, label: i18nText(arch.meta.locale, `legend.architecture.${kind}`) })),
+  ...(hasEmbeddedComponentTypes(arch.components)
+    ? EMBEDDED_COMPONENT_TYPES.map((kind) => ({ kind, label: i18nText(arch.meta.locale, `viewer.kind.${kind}`) }))
+    : []),
+];
 
 // ---- Measure components from free coordinates --------------------------------
 function measureComponent(c) {
   const [x, y] = resolveComponentPos(c, grid);
-  const [w, h] = Array.isArray(c.size) ? c.size : [layout.defaultW, layout.defaultH];
+  const [w, authoredH] = Array.isArray(c.size) ? c.size : [layout.defaultW, layout.defaultH];
+  const h = Math.max(authoredH, embeddedNodeMinimumHeight(c, layout.defaultH));
   return { ...c, x, y, width: w, height: h, cx: x + w / 2, cy: y + h / 2 };
+}
+
+function connectionDisplayLabel(connection) {
+  return relationDisplayLabel(connection, arch.meta.locale);
 }
 
 const components = new Map(asArray(arch.components).map((c) => [c.id, measureComponent(c)]));
@@ -372,8 +392,10 @@ function validateArchitecture() {
     // sublabel and tag render as single unwrapped <text> elements; shrink-to-fit
     // handles the ordinary case, this rejects what it cannot rescue.
     const availableTextW = availableNodeTextWidth(c.width);
+    const embeddedDetail = embeddedNodeDetail(arch, c, arch.meta.locale);
     for (const [field, value, minimum] of [
       ['Sublabel', c.sublabel, componentTextFit.sublabelMinimum],
+      ['Execution detail', embeddedDetail, componentTextFit.sublabelMinimum],
       ['Tag', c.tag, componentTextFit.tagMinimum],
     ]) {
       if (!value) continue;
@@ -566,10 +588,11 @@ function validateArchitecture() {
   // Connection labels must not land on top of components.
   const labelRects = [];
   for (const [connectionIndex, conn] of asArray(arch.connections).entries()) {
-    if (!conn.label || !components.has(conn.from) || !components.has(conn.to)) continue;
+    const displayLabel = connectionDisplayLabel(conn);
+    if (!displayLabel || !components.has(conn.from) || !components.has(conn.to)) continue;
     const [lx, ly] = labelPoint(conn, pathFor(conn).points);
-    const w = Math.max(30, textUnits(conn.label) * 4.8 + 10);
-    labelRects.push({ relation: conn, relationIndex: connectionIndex, label: conn.label, x: lx - w / 2, y: ly - 10, width: w, height: 14, lx, ly });
+    const w = Math.max(30, textUnits(displayLabel) * 4.8 + 10);
+    labelRects.push({ relation: conn, relationIndex: connectionIndex, label: displayLabel, x: lx - w / 2, y: ly - 10, width: w, height: 14, lx, ly });
   }
   for (const rect of labelRects) {
     for (const c of components.values()) {
@@ -606,11 +629,12 @@ function validateArchitecture() {
 function buildLayoutReport() {
   const labels = [];
   for (const conn of asArray(arch.connections)) {
-    if (!conn.label || !components.has(conn.from) || !components.has(conn.to)) continue;
+    const displayLabel = connectionDisplayLabel(conn);
+    if (!displayLabel || !components.has(conn.from) || !components.has(conn.to)) continue;
     const [lx, ly] = labelPoint(conn, pathFor(conn).points);
-    const w = Math.max(30, textUnits(conn.label) * 4.8 + 10);
+    const w = Math.max(30, textUnits(displayLabel) * 4.8 + 10);
     labels.push({
-      text: conn.label,
+      text: displayLabel,
       x: Math.round(lx - w / 2),
       y: Math.round(ly - 10),
       width: Math.round(w),
@@ -629,7 +653,7 @@ function buildLayoutReport() {
       .filter((conn) => components.has(conn.from) && components.has(conn.to))
       .map((conn) => {
         const routed = pathFor(conn);
-        const labelAt = conn.label ? labelPoint(conn, routed.points) : null;
+        const labelAt = connectionDisplayLabel(conn) ? labelPoint(conn, routed.points) : null;
         return connectionPath(conn, routed, labelAt);
       }),
     labels,
@@ -947,14 +971,26 @@ function pathFor(conn) {
 }
 
 // ---- Rendering ---------------------------------------------------------------
+function boundaryVisual(kind) {
+  const visuals = {
+    'security-group': ['c-security-group', 't-security', 8],
+    hardware: ['c-boundary-hardware', 't-external', 6],
+    'execution-domain': ['c-boundary-execution', 't-backend', 10],
+    'privilege-domain': ['c-boundary-privilege', 't-security', 8],
+    'address-space': ['c-boundary-address', 't-frontend', 6],
+    'power-domain': ['c-boundary-power', 't-database', 10],
+    'clock-domain': ['c-boundary-clock', 't-messagebus', 10],
+  };
+  return visuals[kind] || ['c-region', 't-cloud', 12];
+}
+
 function renderBoundaryFrame(b, index) {
-  const cls = b.kind === 'security-group' ? 'c-security-group' : 'c-region';
-  const rx = b.kind === 'security-group' ? 8 : 12;
+  const [cls, _labelCls, rx] = boundaryVisual(b.kind);
   return `        <rect data-graph-role="structural-frame" data-composition-frame-kind="${esc(b.kind || 'boundary')}" data-composition-frame-id="${index}" data-composition-frame-label="${esc(b.label)}" x="${b.x}" y="${b.y}" width="${b.width}" height="${b.height}" rx="${rx}" class="${cls}" stroke-width="1"/>`;
 }
 
 function renderBoundaryLabel(b, index) {
-  const labelCls = b.kind === 'security-group' ? 't-security' : 't-cloud';
+  const [, labelCls] = boundaryVisual(b.kind);
   return `        <g data-graph-role="structural-frame-label" data-composition-frame-id="${index}" data-composition-frame-kind="${esc(b.kind || 'boundary')}" data-composition-frame-label="${esc(b.label)}">
           <rect data-graph-role="structural-frame-label-mask" x="${b.title.x}" y="${b.title.y}" width="${b.title.width}" height="${b.title.height}" rx="3" class="c-mask"/>
           <text data-boundary-label="" x="${b.title.x + 4}" y="${b.title.y + b.title.baselineOffset}" class="${labelCls}" font-size="${b.title.fontSize}" font-weight="600">${esc(b.label)}</text>
@@ -965,16 +1001,21 @@ function renderConnectionPath(conn, index) {
   const [cls, marker] = arrowClassMap[conn.variant || 'default'] || arrowClassMap.default;
   const routed = pathFor(conn);
   const strokeWidth = conn.width || (conn.variant === 'emphasis' ? 1.8 : 1.5);
-  return `        <path ${focusEdgeAttrs(conn.from, conn.to, conn.label, index, conn.id)} data-composition-points="${routePointsValue(routed.points)}" d="${routed.d}" class="${cls}"${animateAttr(arch.meta, 'edge', index)} stroke-width="${strokeWidth}" marker-end="url(#${marker})"/>`;
+  const displayLabel = connectionDisplayLabel(conn);
+  const mechanismLabel = relationMechanismLabel(arch.meta.locale, conn.mechanism);
+  return `        <path ${focusEdgeAttrs(conn.from, conn.to, displayLabel, index, conn.id, { mechanism: conn.mechanism, mechanismLabel })} data-composition-points="${routePointsValue(routed.points)}" d="${routed.d}" class="${cls}"${animateAttr(arch.meta, 'edge', index)} stroke-width="${strokeWidth}" marker-end="url(#${marker})"/>`;
 }
 
 function renderConnectionLabel(conn, index) {
-  if (!conn.label) return '';
+  const displayLabel = connectionDisplayLabel(conn);
+  if (!displayLabel) return '';
   const [lx, ly] = labelPoint(conn, pathFor(conn).points);
-  const w = Math.max(30, textUnits(conn.label) * 4.8 + 10);
-  return `        <g data-detail="context" ${focusEdgeAttrs(conn.from, conn.to, conn.label, index, conn.id)}>
+  const w = Math.max(30, textUnits(displayLabel) * 4.8 + 10);
+  const mechanismLabel = relationMechanismLabel(arch.meta.locale, conn.mechanism);
+  const title = conn.mechanism ? `\n          <title>${esc(displayLabel)}</title>` : '';
+  return `        <g data-detail="context" ${focusEdgeAttrs(conn.from, conn.to, displayLabel, index, conn.id, { mechanism: conn.mechanism, mechanismLabel })}>${title}
           <rect x="${lx - w / 2}" y="${ly - 10}" width="${w}" height="14" rx="3" class="c-mask"/>
-          <text x="${lx}" y="${ly}" class="${variantAccent(conn.variant)}" font-size="8" text-anchor="middle">${esc(conn.label)}</text>
+          <text x="${lx}" y="${ly}" class="${variantAccent(conn.variant)}" font-size="8" text-anchor="middle">${esc(displayLabel)}</text>
         </g>`;
 }
 
@@ -983,22 +1024,26 @@ function renderComponent(c) {
   const accent = componentText[c.type] || 't-muted';
   const cx = c.cx;
   const hasSub = c.sublabel != null && c.sublabel !== '';
-  const labelY = hasSub ? c.y + c.height / 2 - 2 : c.y + c.height / 2 + 4;
+  const embeddedDetail = embeddedNodeDetail(arch, c, arch.meta.locale);
+  const labelY = embeddedDetail ? c.y + 21 : (hasSub ? c.y + c.height / 2 - 2 : c.y + c.height / 2 + 4);
   const sub = hasSub
-    ? `\n        <text data-detail="context" x="${cx}" y="${c.y + c.height / 2 + 14}" class="t-muted" font-size="${fittedNodeFontSize(c.sublabel, c.width, componentTextFit.sublabelPreferred, componentTextFit.sublabelMinimum)}" text-anchor="middle">${esc(c.sublabel)}</text>`
+    ? `\n        <text data-detail="context" x="${cx}" y="${embeddedDetail ? c.y + 37 : c.y + c.height / 2 + 14}" class="t-muted" font-size="${fittedNodeFontSize(c.sublabel, c.width, componentTextFit.sublabelPreferred, componentTextFit.sublabelMinimum)}" text-anchor="middle">${esc(c.sublabel)}</text>`
+    : '';
+  const execution = embeddedDetail
+    ? `\n        <text data-detail="context" data-node-execution-detail="" x="${cx}" y="${c.y + (hasSub ? 53 : 37)}" class="t-dim" font-size="${fittedNodeFontSize(embeddedDetail, c.width, componentTextFit.sublabelPreferred, componentTextFit.sublabelMinimum)}" text-anchor="middle">${esc(embeddedDetail)}</text>`
     : '';
   const tag = c.tag
     ? `\n        <text data-detail="fine" x="${cx}" y="${c.y + c.height - 8}" class="${accent}" font-size="${fittedNodeFontSize(c.tag, c.width, componentTextFit.tagPreferred, componentTextFit.tagMinimum)}" text-anchor="middle">${esc(c.tag)}</text>`
     : '';
   const brand = renderBrandMark(c, { x: c.x + c.width - 22, y: c.y + 6 });
   const labelFontSize = fittedNodeFontSize(c.label, brandLabelFitWidth(c, c.width), 11, 8);
-  const passport = { kind: c.type, sublabel: c.sublabel, tag: c.tag, context: componentContext(c), ...brandMetadataFor(c) };
+  const passport = { kind: c.type, sublabel: c.sublabel, tag: c.tag, context: componentContext(c), ...embeddedNodeMetadata(arch, c, arch.meta.locale), ...brandMetadataFor(c) };
   return `        <g ${focusNodeAttrs(c.id, c.label, passport, arch.meta.locale)}>
           ${focusNodeTitle(c.label, passport)}
           <rect x="${c.x}" y="${c.y}" width="${c.width}" height="${c.height}" rx="6" class="c-mask"/>
           <rect x="${c.x}" y="${c.y}" width="${c.width}" height="${c.height}" rx="6" class="${fill}"${animateAttr(arch.meta, 'node', componentSteps.get(c.id))} stroke-width="1.5"/>
           ${renderSemanticSigil(c.type, { x: c.x + 6, y: c.y + 6 })}${brand ? `\n          ${brand}` : ''}
-          <text data-node-label=""${hasSub ? ' data-detail-anchor=""' : ''} x="${cx}" y="${labelY}" class="t-primary" font-size="${labelFontSize}" font-weight="600" text-anchor="middle">${esc(c.label)}</text>${sub}${tag}
+          <text data-node-label=""${hasSub || embeddedDetail ? ' data-detail-anchor=""' : ''} x="${cx}" y="${labelY}" class="t-primary" font-size="${labelFontSize}" font-weight="600" text-anchor="middle">${esc(c.label)}</text>${sub}${execution}${tag}
         </g>`;
 }
 
@@ -1007,9 +1052,10 @@ function renderLegend() {
   const relationshipObstacles = relationshipLegendObstacles(arch.connections, {
     pointsFor: (connection) => pathFor(connection).points,
     labelRectFor: (connection) => {
-      if (!connection.label) return null;
+      const displayLabel = connectionDisplayLabel(connection);
+      if (!displayLabel) return null;
       const [x, y] = labelPoint(connection, pathFor(connection).points);
-      const width = Math.max(30, textUnits(connection.label) * 4.8 + 10);
+      const width = Math.max(30, textUnits(displayLabel) * 4.8 + 10);
       return { x: x - width / 2, y: y - 10, width, height: 14 };
     },
   });

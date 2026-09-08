@@ -138,7 +138,7 @@ test('other diagram modes reject the architecture-only engineering profile', () 
       });
       assert.notEqual(result.status, 0, mode);
       const receipt = JSON.parse(result.stdout);
-      assert.ok(receipt.diagnostics.some((diagnostic) => diagnostic.code === 'schema/additionalProperties'), mode);
+      assert.ok(receipt.diagnostics.some((diagnostic) => diagnostic.code === 'schema/enum'), mode);
     }
   } finally {
     fs.rmSync(tmp, { recursive: true, force: true });

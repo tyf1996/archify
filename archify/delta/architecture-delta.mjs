@@ -56,7 +56,36 @@ function normalizeBoundary(boundary) {
   return { ...boundary, wraps: sorted(boundary.wraps || []) };
 }
 
+function unsupportedEmbeddedComparePaths(diagram) {
+  const paths = [];
+  if (Array.isArray(diagram?.execution_domains) && diagram.execution_domains.length > 0) {
+    paths.push('/execution_domains');
+  }
+  for (const [index, component] of (diagram?.components || []).entries()) {
+    if (component?.execution_domain !== undefined) paths.push(`/components/${index}/execution_domain`);
+  }
+  if (Array.isArray(diagram?.semanticChecks?.requiredRelations)) {
+    paths.push('/semanticChecks/requiredRelations');
+  }
+  return paths;
+}
+
+export function assertArchitectureEmbeddedCompareSupported(diagram, side = 'input') {
+  const paths = unsupportedEmbeddedComparePaths(diagram);
+  if (!paths.length) return;
+  fail(
+    'delta/embedded-context-unsupported',
+    `${side} uses execution-domain or required-relation facts that Architecture compare does not support yet.`,
+    {
+      side,
+      paths: sorted(paths),
+      supportedFixes: ['use render, validate, or deliver for this document; compare support for these authored facts is not available'],
+    },
+  );
+}
+
 export function canonicalArchitecture(diagram) {
+  assertArchitectureEmbeddedCompareSupported(diagram);
   const meta = { ...(diagram.meta || {}) };
   delete meta.output;
   if (meta.repository) meta.repository = normalizeRepository(meta.repository);
@@ -155,13 +184,13 @@ function fieldChanges(before, after, groups) {
 }
 
 const COMPONENT_FIELDS = {
-  semantic: ['type', 'label', 'sublabel', 'tag'],
+  semantic: ['type', 'label', 'sublabel', 'tag', 'execution_context'],
   evidence: ['sources'],
   geometry: ['row', 'col', 'pos', 'size'],
 };
 const CONNECTION_FIELDS = {
   topology: ['from', 'to'],
-  semantic: ['label', 'variant'],
+  semantic: ['label', 'variant', 'mechanism'],
   geometry: ['fromSide', 'toSide', 'route', 'via', 'labelAt', 'labelDx', 'labelDy', 'labelSegment', 'width'],
 };
 const BOUNDARY_FIELDS = { scope: ['wraps'], geometry: ['pad'] };
@@ -232,6 +261,8 @@ function presentationChanged(base, head) {
 export function compareArchitecture(base, head, evidence = {}) {
   requireComparableShape(base, 'base');
   requireComparableShape(head, 'head');
+  assertArchitectureEmbeddedCompareSupported(base, 'base');
+  assertArchitectureEmbeddedCompareSupported(head, 'head');
   const baseComponents = stableIndex(base.components, 'components', 'base');
   const headComponents = stableIndex(head.components, 'components', 'head');
   const shared = sorted([...baseComponents.keys()].filter((id) => headComponents.has(id)));

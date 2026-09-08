@@ -17,6 +17,16 @@ import { availableNodeTextWidth, fittedNodeFontSize, minimumNodeTextWidth } from
 import { brandLabelFitWidth, brandMetadataFor, brandTopRailProblem, renderBrandMark } from '../shared/brand-marks.mjs';
 import { translateMessage as i18nText } from '../shared/i18n.mjs';
 import {
+  EMBEDDED_COMPONENT_TYPES,
+  embeddedNodeDetail,
+  embeddedNodeMetadata,
+  embeddedNodeMinimumHeight,
+  hasEmbeddedComponentTypes,
+  relationDisplayLabel,
+  relationMechanismLabel,
+  validateEmbeddedContracts,
+} from '../shared/embedded.mjs';
+import {
   createMappedWorkflowCandidate,
   intrinsicWorkflow,
   planningWorkflow,
@@ -104,7 +114,10 @@ function createLegacyLayout() {
 }
 
 function authoredNodeWidth(node) {
-  return Number.isFinite(node?.width) ? node.width : 92;
+  const ordinaryWidth = Number.isFinite(node?.width) ? node.width : 92;
+  return node?.execution_domain || node?.execution_context
+    ? Math.max(96, ordinaryWidth)
+    : ordinaryWidth;
 }
 
 function nodeWidthContributor(node) {
@@ -112,12 +125,17 @@ function nodeWidthContributor(node) {
 }
 
 function authoredNodeHeight(node) {
-  if (Number.isFinite(node?.height)) return node.height;
-  return node?.tag ? 68 : 52;
+  const ordinaryHeight = node?.tag ? 68 : 52;
+  const authoredHeight = Number.isFinite(node?.height) ? node.height : ordinaryHeight;
+  return Math.max(authoredHeight, embeddedNodeMinimumHeight(node, ordinaryHeight));
 }
 
 function workflowLabelWidth(label) {
   return Math.max(30, textUnits(label) * 4.8 + 10);
+}
+
+function workflowEdgeDisplayLabel(workflow, edge) {
+  return relationDisplayLabel(edge, workflow?.meta?.locale);
 }
 
 function readableGroupBounds(workflow, group, colXs) {
@@ -214,11 +232,12 @@ function createReadableLayout(workflow, layoutFeedback = {}) {
     if ((Number(fromNode.yOffset) || 0) !== (Number(toNode.yOffset) || 0)) continue;
     const earlier = fromNode.col < toNode.col ? fromNode : toNode;
     const later = earlier === fromNode ? toNode : fromNode;
-    const labeledDirectClearance = edge.label && !edge.labelAt
-      ? Math.max(28, workflowLabelWidth(edge.label) + 8)
+    const displayLabel = workflowEdgeDisplayLabel(workflow, edge);
+    const labeledDirectClearance = displayLabel && !edge.labelAt
+      ? Math.max(28, workflowLabelWidth(displayLabel) + 8)
       : 28;
     const directLabelExpansionCost = Math.max(0, labeledDirectClearance - 28);
-    const canUseAutomaticLabelChannel = edge.label
+    const canUseAutomaticLabelChannel = displayLabel
       && !edge.labelAt
       && (edge.route || 'auto') === 'auto'
       && !edge.fromSide
@@ -394,7 +413,7 @@ function createReadableLayout(workflow, layoutFeedback = {}) {
     const toNode = nodesById.get(edge.to);
     if (!fromNode || !toNode) return maximum;
     const labelCenter = (colXs[fromNode.col] + colXs[toNode.col]) / 2;
-    const labelLeft = labelCenter - workflowLabelWidth(edge.label) / 2;
+    const labelLeft = labelCenter - workflowLabelWidth(workflowEdgeDisplayLabel(workflow, edge)) / 2;
     return Math.max(maximum, 16 - labelLeft);
   }, 0);
   for (const phase of asArray(workflow.phases)) {
@@ -777,6 +796,7 @@ function compileWorkflowInternal({
   let inputDiagnostics = [];
   try {
     validateSchema('workflow', qualityResolvedWorkflow);
+    validateEmbeddedContracts('workflow', qualityResolvedWorkflow);
   } catch (error) {
     inputDiagnostics = Array.isArray(error?.archifyDiagnostics)
       ? error.archifyDiagnostics.map((diagnostic) => ({
@@ -815,7 +835,7 @@ function compileWorkflowInternal({
     ? createReadableLayout(workflow, layoutFeedback)
     : createLegacyLayout();
 
-const LEGEND_CATALOG = [
+const LEGACY_LEGEND_KINDS = [
   'frontend',
   'backend',
   'security',
@@ -823,7 +843,13 @@ const LEGEND_CATALOG = [
   'database',
   'cloud',
   'external',
-].map((kind) => ({ kind, label: i18nText(workflow.meta.locale, `legend.workflow.${kind}`) }));
+];
+const LEGEND_CATALOG = [
+  ...LEGACY_LEGEND_KINDS.map((kind) => ({ kind, label: i18nText(workflow.meta.locale, `legend.workflow.${kind}`) })),
+  ...(hasEmbeddedComponentTypes(workflow.nodes)
+    ? EMBEDDED_COMPONENT_TYPES.map((kind) => ({ kind, label: i18nText(workflow.meta.locale, `viewer.kind.${kind}`) }))
+    : []),
+];
 const presentLegendKinds = new Set(asArray(workflow.nodes).map((node) => node.type));
 const workflowLegendEntries = resolveLegend(
   workflow.meta?.legend,
@@ -939,8 +965,9 @@ function workflowLegendRects() {
 }
 
 function measureNode(node) {
-  const width = node.width || layout.nodeW;
-  const height = node.height || (node.tag ? 68 : layout.nodeH);
+  const width = authoredNodeWidth(node);
+  const ordinaryHeight = node.tag ? 68 : layout.nodeH;
+  const height = Math.max(node.height || ordinaryHeight, embeddedNodeMinimumHeight(node, ordinaryHeight));
   const cx = layout.colXs[node.col];
   const groupHeaderH = laneGroupHeaderH(node.lane);
   const contentH = laneHeight(node.lane) - layout.laneTitleH
@@ -2263,8 +2290,10 @@ function validateWorkflow() {
     const brandRailProblem = brandTopRailProblem(node, node.width, nodeTextFit.labelMinimum);
     if (brandRailProblem) problems.push(brandRailProblem);
     const availableTextW = availableNodeTextWidth(node.width);
+    const embeddedDetail = embeddedNodeDetail(workflow, node, workflow.meta.locale);
     for (const [field, value, minimum] of [
       ['Sublabel', node.sublabel, nodeTextFit.sublabelMinimum],
+      ['Execution detail', embeddedDetail, nodeTextFit.sublabelMinimum],
       ['Tag', node.tag, nodeTextFit.tagMinimum],
     ]) {
       if (!value) continue;
@@ -2970,21 +2999,23 @@ function routeMeetsHardRhythm(points) {
 }
 
 function routeLabelClearsNodes(edge, points) {
-  if (!edge.label || edge.labelAt) return true;
+  const displayLabel = workflowEdgeDisplayLabel(workflow, edge);
+  if (!displayLabel || edge.labelAt) return true;
   const [lx, ly] = workflowEdgeLabelPoint(edge, points);
   const rect = {
-    x: lx - workflowLabelWidth(edge.label) / 2,
+    x: lx - workflowLabelWidth(displayLabel) / 2,
     y: ly - 10,
-    width: workflowLabelWidth(edge.label),
+    width: workflowLabelWidth(displayLabel),
     height: 14,
   };
   return [...nodes.values()].every((node) => !rectsOverlap(rect, node, -2));
 }
 
 function candidateLabelRect(edge, points) {
-  if (!edge.label) return null;
+  const displayLabel = workflowEdgeDisplayLabel(workflow, edge);
+  if (!displayLabel) return null;
   const [lx, ly] = workflowEdgeLabelPoint(edge, points);
-  const width = workflowLabelWidth(edge.label);
+  const width = workflowLabelWidth(displayLabel);
   return { x: lx - width / 2, y: ly - 10, width, height: 14 };
 }
 
@@ -3982,13 +4013,14 @@ function pathFor(edge) {
 }
 
 function labelRectFor(edge, relationIndex) {
-  if (!edge.label || !nodes.has(edge.from) || !nodes.has(edge.to)) return null;
+  const displayLabel = workflowEdgeDisplayLabel(workflow, edge);
+  if (!displayLabel || !nodes.has(edge.from) || !nodes.has(edge.to)) return null;
   const [lx, ly] = workflowEdgeLabelPoint(edge, pathFor(edge).points);
-  const width = workflowLabelWidth(edge.label);
+  const width = workflowLabelWidth(displayLabel);
   return {
     relation: edge,
     relationIndex,
-    label: edge.label,
+    label: displayLabel,
     x: lx - width / 2,
     y: ly - 10,
     width,
@@ -4191,6 +4223,7 @@ function renderNode(node) {
   const fill = componentFill[node.type] || 'c-external';
   const accent = componentText[node.type] || 't-muted';
   const hasSub = node.sublabel != null && node.sublabel !== '';
+  const embeddedDetail = embeddedNodeDetail(workflow, node, workflow.meta.locale);
   const labelFontSize = fittedNodeFontSize(node.label, brandLabelFitWidth(node, node.width), nodeTextFit.labelPreferred, nodeTextFit.labelMinimum);
   const sublabelFontSize = hasSub
     ? fittedNodeFontSize(node.sublabel, node.width, nodeTextFit.sublabelPreferred, nodeTextFit.sublabelMinimum)
@@ -4198,17 +4231,20 @@ function renderNode(node) {
   const sub = hasSub
     ? `\n          <text data-detail="context" x="${node.cx}" y="${node.y + 38}" class="t-muted" font-size="${sublabelFontSize}" text-anchor="middle">${esc(node.sublabel)}</text>`
     : '';
+  const execution = embeddedDetail
+    ? `\n          <text data-detail="context" data-node-execution-detail="" x="${node.cx}" y="${node.y + (hasSub ? 53 : 38)}" class="t-dim" font-size="${fittedNodeFontSize(embeddedDetail, node.width, nodeTextFit.sublabelPreferred, nodeTextFit.sublabelMinimum)}" text-anchor="middle">${esc(embeddedDetail)}</text>`
+    : '';
   const tag = node.tag
     ? `\n        <text data-detail="fine" x="${node.cx}" y="${node.y + node.height - 12}" class="${accent}" font-size="${fittedNodeFontSize(node.tag, node.width, nodeTextFit.tagPreferred, nodeTextFit.tagMinimum)}" text-anchor="middle">${esc(node.tag)}</text>`
     : '';
   const brand = renderBrandMark(node, { x: node.x + node.width - 22, y: node.y + 6 });
-  const passport = { kind: node.type, sublabel: node.sublabel, tag: node.tag, context: nodeContext(node), ...brandMetadataFor(node) };
+  const passport = { kind: node.type, sublabel: node.sublabel, tag: node.tag, context: nodeContext(node), ...embeddedNodeMetadata(workflow, node, workflow.meta.locale), ...brandMetadataFor(node) };
   return `        <g ${focusNodeAttrs(node.id, node.label, passport, workflow.meta.locale)}>
           ${focusNodeTitle(node.label, passport)}
           <rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="6" class="c-mask"/>
           <rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="6" class="${fill}"${animateAttr(workflow.meta, 'node', nodeStep(node))} stroke-width="1.5"/>
           ${renderSemanticSigil(node.type, { x: node.x + 6, y: node.y + 6 })}${brand ? `\n          ${brand}` : ''}
-          <text data-node-label=""${hasSub ? ' data-detail-anchor=""' : ''} x="${node.cx}" y="${node.y + 21}" class="t-primary" font-size="${labelFontSize}" font-weight="600" text-anchor="middle">${esc(node.label)}</text>${sub}${tag}
+          <text data-node-label=""${hasSub || embeddedDetail ? ' data-detail-anchor=""' : ''} x="${node.cx}" y="${node.y + 21}" class="t-primary" font-size="${labelFontSize}" font-weight="600" text-anchor="middle">${esc(node.label)}</text>${sub}${execution}${tag}
         </g>`;
 }
 
@@ -4216,17 +4252,22 @@ function renderEdgePath(edge, index) {
   const [cls, marker] = arrowClassMap[edge.variant || 'default'] || arrowClassMap.default;
   const routed = pathFor(edge);
   const strokeWidth = edge.width || (edge.variant === 'emphasis' ? 1.8 : 1.4);
-  return `        <path ${focusEdgeAttrs(edge.from, edge.to, edge.label, index, edge.id)} data-composition-points="${routePointsValue(routed.points)}" d="${routed.d}" class="${cls}"${animateAttr(workflow.meta, 'edge', edgeSteps.get(edge))} stroke-width="${strokeWidth}" marker-end="url(#${marker})"/>`;
+  const displayLabel = workflowEdgeDisplayLabel(workflow, edge);
+  const mechanismLabel = relationMechanismLabel(workflow.meta.locale, edge.mechanism);
+  return `        <path ${focusEdgeAttrs(edge.from, edge.to, displayLabel, index, edge.id, { mechanism: edge.mechanism, mechanismLabel })} data-composition-points="${routePointsValue(routed.points)}" d="${routed.d}" class="${cls}"${animateAttr(workflow.meta, 'edge', edgeSteps.get(edge))} stroke-width="${strokeWidth}" marker-end="url(#${marker})"/>`;
 }
 
 function renderEdgeLabel(edge, index) {
-  if (!edge.label) return '';
+  const displayLabel = workflowEdgeDisplayLabel(workflow, edge);
+  if (!displayLabel) return '';
   const routed = pathFor(edge);
   const [lx, ly] = workflowEdgeLabelPoint(edge, routed.points);
-  const labelW = workflowLabelWidth(edge.label);
-  return `        <g data-detail="context" ${focusEdgeAttrs(edge.from, edge.to, edge.label, index, edge.id)}>
+  const labelW = workflowLabelWidth(displayLabel);
+  const mechanismLabel = relationMechanismLabel(workflow.meta.locale, edge.mechanism);
+  const title = edge.mechanism ? `\n          <title>${esc(displayLabel)}</title>` : '';
+  return `        <g data-detail="context" ${focusEdgeAttrs(edge.from, edge.to, displayLabel, index, edge.id, { mechanism: edge.mechanism, mechanismLabel })}>${title}
           <rect x="${lx - labelW / 2}" y="${ly - 10}" width="${labelW}" height="14" rx="3" class="c-mask"/>
-          <text x="${lx}" y="${ly}" class="${variantAccent(edge.variant, { dashed: 't-database' })}" font-size="8" text-anchor="middle">${esc(edge.label)}</text>
+          <text x="${lx}" y="${ly}" class="${variantAccent(edge.variant, { dashed: 't-database' })}" font-size="8" text-anchor="middle">${esc(displayLabel)}</text>
         </g>`;
 }
 
@@ -4304,9 +4345,10 @@ ${renderLegend()}
         points: pathFor(edge).points.map((point) => [...point]),
       })),
       labels: workflow.edges.flatMap((edge) => {
-        if (!edge.label || !nodes.has(edge.from) || !nodes.has(edge.to)) return [];
+        const displayLabel = workflowEdgeDisplayLabel(workflow, edge);
+        if (!displayLabel || !nodes.has(edge.from) || !nodes.has(edge.to)) return [];
         const [x, y] = workflowEdgeLabelPoint(edge, pathFor(edge).points);
-        return [{ edge: edge.id ?? null, label: edge.label, x, y, width: workflowLabelWidth(edge.label), height: 14 }];
+        return [{ edge: edge.id ?? null, label: displayLabel, x, y, width: workflowLabelWidth(displayLabel), height: 14 }];
       }),
       diagnostics: [],
     };

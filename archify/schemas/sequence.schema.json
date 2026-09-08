@@ -47,6 +47,9 @@
         "quality_profile": {
           "$ref": "common.schema.json#/$defs/qualityProfile"
         },
+        "engineering_profile": {
+          "enum": ["embedded-runtime"]
+        },
         "column_fit": {
           "description": "Horizontal participant layout. Omit this field or use fixed for the stable 86px boxes and 108px gap. Use spread when a wide viewBox would leave unused horizontal space or meaningful participant labels do not fit the fixed boxes; spread derives wider boxes and gaps from the viewBox without changing participant order or message semantics.",
           "enum": ["fixed", "spread"]
@@ -67,7 +70,16 @@
                 "emphasis": { "$ref": "common.schema.json#/$defs/legendEntry" },
                 "security": { "$ref": "common.schema.json#/$defs/legendEntry" },
                 "dashed": { "$ref": "common.schema.json#/$defs/legendEntry" },
-                "return": { "$ref": "common.schema.json#/$defs/legendEntry" }
+                "return": { "$ref": "common.schema.json#/$defs/legendEntry" },
+                "software": { "$ref": "common.schema.json#/$defs/legendEntry" },
+                "process": { "$ref": "common.schema.json#/$defs/legendEntry" },
+                "thread": { "$ref": "common.schema.json#/$defs/legendEntry" },
+                "task": { "$ref": "common.schema.json#/$defs/legendEntry" },
+                "isr": { "$ref": "common.schema.json#/$defs/legendEntry" },
+                "hardware": { "$ref": "common.schema.json#/$defs/legendEntry" },
+                "buffer": { "$ref": "common.schema.json#/$defs/legendEntry" },
+                "memory": { "$ref": "common.schema.json#/$defs/legendEntry" },
+                "bus": { "$ref": "common.schema.json#/$defs/legendEntry" }
               }
             }
           }
@@ -88,6 +100,17 @@
           "minItems": 2,
           "maxItems": 2
         }
+      }
+    },
+    "execution_domains": {
+      "$ref": "common.schema.json#/$defs/executionDomains"
+    },
+    "semanticChecks": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "requiredRelations": { "$ref": "common.schema.json#/$defs/requiredRelations" }
       }
     },
     "participants": {
@@ -117,6 +140,12 @@
           },
           "brand": {
             "$ref": "common.schema.json#/$defs/brandMark"
+          },
+          "execution_domain": {
+            "$ref": "common.schema.json#/$defs/id"
+          },
+          "execution_context": {
+            "$ref": "common.schema.json#/$defs/executionContext"
           }
         }
       }
@@ -174,6 +203,9 @@
           "label": {
             "type": "string",
             "minLength": 1
+          },
+          "mechanism": {
+            "$ref": "common.schema.json#/$defs/mechanism"
           },
           "variant": {
             "enum": [

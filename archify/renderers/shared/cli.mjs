@@ -5,6 +5,7 @@ import { validateSchema } from './validator.mjs';
 import { verifyRepositoryEvidence } from './repository-evidence.mjs';
 import { installRendererDiagnosticBoundary, throwDiagnosticProblems } from './diagnostics.mjs';
 import { validateEngineeringProfile } from './engineering-profiles.mjs';
+import { validateEmbeddedContracts } from './embedded.mjs';
 import { resolveOutputPath } from './output-path.mjs';
 import { prepareDiagramBrandMarks } from './brand-marks.mjs';
 import { resolveLocale, translateMessage } from './i18n.mjs';
@@ -23,6 +24,7 @@ export function loadDiagram({ rendererDir, diagramType, defaultExample, argv = p
   validateSchema(diagramType, diagram);
   validateGuidedViews(diagramType, diagram);
   validateRelationshipIds(diagramType, diagram);
+  validateEmbeddedContracts(diagramType, diagram);
   validateEngineeringProfile(diagramType, diagram);
   const sourceEvidence = verifyRepositoryEvidence(diagramType, diagram, process.env.ARCHIFY_REPO_ROOT);
   const template = fs.readFileSync(path.join(skillRoot, 'assets/template.html'), 'utf8');
@@ -188,10 +190,13 @@ export function focusNodeAttrs(id, label, metadata = {}, locale) {
     ['data-node-brand-id', metadata.brandId],
     ['data-node-brand-status', metadata.brandStatus],
     ['data-node-brand-source', metadata.brandSource],
+    ['data-node-execution-domain', metadata.executionDomain],
+    ['data-node-execution-domain-label', metadata.executionDomainLabel],
+    ['data-node-execution-context', metadata.executionContext],
   ].filter(([, value]) => value !== undefined && value !== null && String(value).trim() !== '')
     .map(([name, value]) => ` ${name}="${esc(String(value))}"`)
     .join('');
-  const detail = [metadata.sublabel, metadata.context, metadata.brand]
+  const detail = [metadata.sublabel, metadata.context, metadata.embeddedDetail, metadata.brand]
     .filter((value) => value !== undefined && value !== null && String(value).trim() !== '')
     .join(', ');
   const aria = detail
@@ -203,16 +208,22 @@ export function focusNodeAttrs(id, label, metadata = {}, locale) {
 // Native SVG titles preserve a compact details-on-demand fallback when the
 // canonical SVG is embedded inline outside the full Archify viewer.
 export function focusNodeTitle(label, metadata = {}) {
-  const parts = [label, metadata.sublabel, metadata.context, metadata.tag, metadata.brand]
+  const parts = [label, metadata.sublabel, metadata.context, metadata.embeddedDetail, metadata.tag, metadata.brand]
     .filter((value) => value !== undefined && value !== null && String(value).trim() !== '');
   return `<title>${esc(parts.join(' · '))}</title>`;
 }
 
-export function focusEdgeAttrs(from, to, label, key, id) {
+export function focusEdgeAttrs(from, to, label, key, id, metadata = {}) {
   const named = label ? ` data-edge-label="${esc(label)}"` : '';
   const keyed = key !== undefined && key !== null ? ` data-edge-key="${esc(String(key))}"` : '';
   const identified = id !== undefined && id !== null && String(id).trim() !== ''
     ? ` data-edge-id="${esc(String(id))}"`
     : '';
-  return `data-edge-from="${esc(from)}" data-edge-to="${esc(to)}"${named}${keyed}${identified}`;
+  const mechanism = metadata.mechanism
+    ? ` data-edge-mechanism="${esc(String(metadata.mechanism))}"`
+    : '';
+  const mechanismLabel = metadata.mechanismLabel
+    ? ` data-edge-mechanism-label="${esc(String(metadata.mechanismLabel))}"`
+    : '';
+  return `data-edge-from="${esc(from)}" data-edge-to="${esc(to)}"${named}${keyed}${identified}${mechanism}${mechanismLabel}`;
 }

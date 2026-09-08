@@ -7,6 +7,7 @@ import { resolveLegend, renderLegend as renderResolvedLegend } from '../shared/l
 import { availableNodeTextWidth, fittedNodeFontSize, minimumNodeTextWidth } from '../shared/text-fit.mjs';
 import { brandLabelFitWidth, brandMarkFor, brandMetadataFor, brandTopRailProblem, renderBrandMark } from '../shared/brand-marks.mjs';
 import { translateMessage as i18nText } from '../shared/i18n.mjs';
+import { relationDisplayLabel, relationMechanismLabel } from '../shared/embedded.mjs';
 import {
   asArray,
   isFinitePoint,
@@ -128,6 +129,10 @@ function measureState(state) {
 }
 
 const states = new Map(asArray(lifecycle.states).map((state) => [state.id, measureState(state)]));
+
+function transitionDisplayLabel(transition) {
+  return relationDisplayLabel(transition, lifecycle.meta.locale);
+}
 const laneLabels = new Map(asArray(lifecycle.lanes).map((lane) => [lane.id, lane.label]));
 const stateSteps = new Map();
 for (const [index, transition] of asArray(lifecycle.transitions).entries()) {
@@ -288,12 +293,13 @@ function validateLifecycle() {
 
   const labelRects = [];
   for (const [transitionIndex, transition] of asArray(lifecycle.transitions).entries()) {
-    if (!transition.label || !states.has(transition.from) || !states.has(transition.to)) continue;
+    const displayLabel = transitionDisplayLabel(transition);
+    if (!displayLabel || !states.has(transition.from) || !states.has(transition.to)) continue;
     const [lx, ly] = labelPoint(transition, pathFor(transition).points);
-    const longestLine = Math.max(textUnits(transition.label), textUnits(transition.note || ''));
+    const longestLine = Math.max(textUnits(displayLabel), textUnits(transition.note || ''));
     const width = Math.max(32, longestLine * 4.9 + 12);
     const height = transition.note ? 27 : 16;
-    labelRects.push({ relation: transition, relationIndex: transitionIndex, label: transition.label, x: lx - width / 2, y: ly - 11, width, height, lx, ly });
+    labelRects.push({ relation: transition, relationIndex: transitionIndex, label: displayLabel, x: lx - width / 2, y: ly - 11, width, height, lx, ly });
   }
   for (const rect of labelRects) {
     for (const state of states.values()) {
@@ -465,22 +471,27 @@ function renderTransitionPath(transition, index) {
   const [cls, marker] = arrowClassMap[transition.variant || 'default'] || arrowClassMap.default;
   const routed = pathFor(transition);
   const strokeWidth = transition.width || (transition.variant === 'emphasis' ? 2 : 1.1);
-  return `        <path ${focusEdgeAttrs(transition.from, transition.to, transition.label, index, transition.id)} data-composition-points="${routePointsValue(routed.points)}" d="${routed.d}" class="${cls}"${animateAttr(lifecycle.meta, 'edge', index)} stroke-width="${strokeWidth}" marker-end="url(#${marker})"/>`;
+  const displayLabel = transitionDisplayLabel(transition);
+  const mechanismLabel = relationMechanismLabel(lifecycle.meta.locale, transition.mechanism);
+  return `        <path ${focusEdgeAttrs(transition.from, transition.to, displayLabel, index, transition.id, { mechanism: transition.mechanism, mechanismLabel })} data-composition-points="${routePointsValue(routed.points)}" d="${routed.d}" class="${cls}"${animateAttr(lifecycle.meta, 'edge', index)} stroke-width="${strokeWidth}" marker-end="url(#${marker})"/>`;
 }
 
 function renderTransitionLabel(transition, index) {
-  if (!transition.label) return '';
+  const displayLabel = transitionDisplayLabel(transition);
+  if (!displayLabel) return '';
   const routed = pathFor(transition);
   const [lx, ly] = labelPoint(transition, routed.points);
-  const longestLine = Math.max(textUnits(transition.label), textUnits(transition.note || ''));
+  const longestLine = Math.max(textUnits(displayLabel), textUnits(transition.note || ''));
   const labelW = Math.max(32, longestLine * 4.9 + 12);
   const labelH = transition.note ? 27 : 16;
+  const mechanismLabel = relationMechanismLabel(lifecycle.meta.locale, transition.mechanism);
   const note = transition.note
     ? `\n        <text data-detail="fine" x="${lx}" y="${ly + 11}" class="t-dim" font-size="7" text-anchor="middle">${esc(transition.note)}</text>`
     : '';
-  return `        <g data-detail="context" ${focusEdgeAttrs(transition.from, transition.to, transition.label, index, transition.id)}>
+  const title = transition.mechanism ? `\n          <title>${esc(displayLabel)}</title>` : '';
+  return `        <g data-detail="context" ${focusEdgeAttrs(transition.from, transition.to, displayLabel, index, transition.id, { mechanism: transition.mechanism, mechanismLabel })}>${title}
           <rect x="${lx - labelW / 2}" y="${ly - 11}" width="${labelW}" height="${labelH}" rx="4" class="c-mask"/>
-          <text x="${lx}" y="${ly}" class="${variantAccent(transition.variant)}" font-size="8" text-anchor="middle">${esc(transition.label)}</text>${note}
+          <text x="${lx}" y="${ly}" class="${variantAccent(transition.variant)}" font-size="8" text-anchor="middle">${esc(displayLabel)}</text>${note}
         </g>`;
 }
 

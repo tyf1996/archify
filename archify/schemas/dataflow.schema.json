@@ -48,6 +48,9 @@
         "quality_profile": {
           "$ref": "common.schema.json#/$defs/qualityProfile"
         },
+        "engineering_profile": {
+          "enum": ["embedded-runtime"]
+        },
         "views": {
           "$ref": "common.schema.json#/$defs/guidedViews"
         },
@@ -64,7 +67,16 @@
                 "emphasis": { "$ref": "common.schema.json#/$defs/legendEntry" },
                 "security": { "$ref": "common.schema.json#/$defs/legendEntry" },
                 "dashed": { "$ref": "common.schema.json#/$defs/legendEntry" },
-                "database": { "$ref": "common.schema.json#/$defs/legendEntry" }
+                "database": { "$ref": "common.schema.json#/$defs/legendEntry" },
+                "software": { "$ref": "common.schema.json#/$defs/legendEntry" },
+                "process": { "$ref": "common.schema.json#/$defs/legendEntry" },
+                "thread": { "$ref": "common.schema.json#/$defs/legendEntry" },
+                "task": { "$ref": "common.schema.json#/$defs/legendEntry" },
+                "isr": { "$ref": "common.schema.json#/$defs/legendEntry" },
+                "hardware": { "$ref": "common.schema.json#/$defs/legendEntry" },
+                "buffer": { "$ref": "common.schema.json#/$defs/legendEntry" },
+                "memory": { "$ref": "common.schema.json#/$defs/legendEntry" },
+                "bus": { "$ref": "common.schema.json#/$defs/legendEntry" }
               }
             }
           }
@@ -85,6 +97,17 @@
           "minItems": 2,
           "maxItems": 2
         }
+      }
+    },
+    "execution_domains": {
+      "$ref": "common.schema.json#/$defs/executionDomains"
+    },
+    "semanticChecks": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "requiredRelations": { "$ref": "common.schema.json#/$defs/requiredRelations" }
       }
     },
     "stages": {
@@ -138,6 +161,12 @@
           "brand": {
             "$ref": "common.schema.json#/$defs/brandMark"
           },
+          "execution_domain": {
+            "$ref": "common.schema.json#/$defs/id"
+          },
+          "execution_context": {
+            "$ref": "common.schema.json#/$defs/executionContext"
+          },
           "stage": {
             "type": "integer",
             "minimum": 0
@@ -186,6 +215,9 @@
           },
           "classification": {
             "type": "string"
+          },
+          "mechanism": {
+            "$ref": "common.schema.json#/$defs/mechanism"
           },
           "variant": {
             "$ref": "common.schema.json#/$defs/variant"

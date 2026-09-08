@@ -1350,7 +1350,16 @@ export const componentFill = {
   cloud: 'c-cloud',
   security: 'c-security',
   messagebus: 'c-messagebus',
-  external: 'c-external'
+  external: 'c-external',
+  software: 'c-backend',
+  process: 'c-frontend',
+  thread: 'c-cloud',
+  task: 'c-backend',
+  isr: 'c-security',
+  hardware: 'c-external',
+  buffer: 'c-cloud',
+  memory: 'c-database',
+  bus: 'c-messagebus'
 };
 
 export const componentText = {
@@ -1360,7 +1369,16 @@ export const componentText = {
   cloud: 't-cloud',
   security: 't-security',
   messagebus: 't-messagebus',
-  external: 't-external'
+  external: 't-external',
+  software: 't-backend',
+  process: 't-frontend',
+  thread: 't-cloud',
+  task: 't-backend',
+  isr: 't-security',
+  hardware: 't-external',
+  buffer: 't-cloud',
+  memory: 't-database',
+  bus: 't-messagebus'
 };
 
 export const arrowClassMap = {

@@ -37,7 +37,59 @@
       "maxItems": 2
     },
     "componentType": {
-      "enum": ["frontend", "backend", "database", "cloud", "security", "messagebus", "external"]
+      "enum": [
+        "frontend", "backend", "database", "cloud", "security", "messagebus", "external",
+        "software", "process", "thread", "task", "isr", "hardware", "buffer", "memory", "bus"
+      ]
+    },
+    "executionContext": {
+      "enum": [
+        "linux-user", "linux-kernel", "linux-irq", "rtos-task", "rtos-isr",
+        "bare-main", "bare-isr", "boot", "hardware", "unknown"
+      ]
+    },
+    "mechanism": {
+      "enum": [
+        "call", "system-call", "device-binding", "ipc", "task-sync", "irq",
+        "dma", "shared-memory", "bus", "firmware-load", "lifecycle-control",
+        "data-transfer", "notification"
+      ]
+    },
+    "executionDomains": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["id", "label", "environment"],
+        "properties": {
+          "id": { "$ref": "#/$defs/id" },
+          "label": { "type": "string", "minLength": 1 },
+          "environment": { "enum": ["linux", "rtos", "bare-metal"] },
+          "runtime": { "type": "string", "minLength": 1 },
+          "version": { "type": "string", "minLength": 1 },
+          "processor": { "type": "string", "minLength": 1 },
+          "cores": {
+            "type": "array",
+            "minItems": 1,
+            "uniqueItems": true,
+            "items": { "type": "string", "minLength": 1 }
+          }
+        }
+      }
+    },
+    "requiredRelations": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": ["from", "to"],
+        "properties": {
+          "from": { "$ref": "#/$defs/id" },
+          "to": { "$ref": "#/$defs/id" },
+          "mechanism": { "$ref": "#/$defs/mechanism" }
+        }
+      }
     },
     "brandMark": {
       "oneOf": [

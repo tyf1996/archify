@@ -1364,7 +1364,16 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     .overview-map-node[data-kind="decision"],
     .overview-map-node[data-kind="failure"] { fill: var(--security-stroke); stroke: var(--security-stroke); }
     .overview-map-node[data-kind="external"],
+    .overview-map-node[data-kind="hardware"],
     .overview-map-node[data-kind="neutral"] { fill: var(--external-stroke); stroke: var(--external-stroke); }
+    .overview-map-node[data-kind="software"],
+    .overview-map-node[data-kind="task"] { fill: var(--backend-stroke); stroke: var(--backend-stroke); }
+    .overview-map-node[data-kind="process"] { fill: var(--frontend-stroke); stroke: var(--frontend-stroke); }
+    .overview-map-node[data-kind="thread"],
+    .overview-map-node[data-kind="buffer"] { fill: var(--cloud-stroke); stroke: var(--cloud-stroke); }
+    .overview-map-node[data-kind="isr"] { fill: var(--security-stroke); stroke: var(--security-stroke); }
+    .overview-map-node[data-kind="memory"] { fill: var(--database-stroke); stroke: var(--database-stroke); }
+    .overview-map-node[data-kind="bus"] { fill: var(--messagebus-stroke); stroke: var(--messagebus-stroke); }
     .overview-map-node[data-radar-active="true"],
     .overview-map-node:hover,
     .overview-map-node:focus-visible {
@@ -1528,8 +1537,17 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     .semantic-lens-kind[data-kind="waiting"] { --lens-color: var(--cloud-stroke); }
     .semantic-lens-kind[data-kind="messagebus"] { --lens-color: var(--messagebus-stroke); }
     .semantic-lens-kind[data-kind="security"],
+    .semantic-lens-kind[data-kind="isr"],
     .semantic-lens-kind[data-kind="decision"],
     .semantic-lens-kind[data-kind="failure"] { --lens-color: var(--security-stroke); }
+    .semantic-lens-kind[data-kind="software"],
+    .semantic-lens-kind[data-kind="task"] { --lens-color: var(--backend-stroke); }
+    .semantic-lens-kind[data-kind="process"] { --lens-color: var(--frontend-stroke); }
+    .semantic-lens-kind[data-kind="thread"],
+    .semantic-lens-kind[data-kind="buffer"] { --lens-color: var(--cloud-stroke); }
+    .semantic-lens-kind[data-kind="hardware"] { --lens-color: var(--external-stroke); }
+    .semantic-lens-kind[data-kind="memory"] { --lens-color: var(--database-stroke); }
+    .semantic-lens-kind[data-kind="bus"] { --lens-color: var(--messagebus-stroke); }
     .semantic-lens-kind:hover,
     .semantic-lens-kind:focus-visible,
     .semantic-lens-kind[aria-pressed="true"] {
@@ -4782,9 +4800,15 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
     svg[data-preset="blueprint"][data-chapter-preview] [data-node-id] { filter: none !important; }
 
     /* Dashed boundary variants */
-    .c-security-group { fill: transparent; stroke: var(--security-stroke); stroke-dasharray: 4,4; }
-    .c-region         { fill: rgba(251, 191, 36, 0.05); stroke: var(--cloud-stroke); stroke-dasharray: 8,4; }
-    .c-lane           { fill: var(--lane-fill); stroke: var(--lane-stroke); stroke-dasharray: 6,6; }
+    .c-security-group    { fill: transparent; stroke: var(--security-stroke); stroke-dasharray: 4,4; }
+    .c-region            { fill: rgba(251, 191, 36, 0.05); stroke: var(--cloud-stroke); stroke-dasharray: 8,4; }
+    .c-boundary-hardware { fill: transparent; stroke: var(--external-stroke); stroke-dasharray: 12,3,2,3; }
+    .c-boundary-execution { fill: transparent; stroke: var(--backend-stroke); stroke-dasharray: 10,4; }
+    .c-boundary-privilege { fill: transparent; stroke: var(--security-stroke); stroke-dasharray: 3,3; }
+    .c-boundary-address  { fill: transparent; stroke: var(--frontend-stroke); stroke-dasharray: 2,5; }
+    .c-boundary-power    { fill: transparent; stroke: var(--database-stroke); stroke-dasharray: 14,4; }
+    .c-boundary-clock    { fill: transparent; stroke: var(--messagebus-stroke); stroke-dasharray: 6,3,1,3; }
+    .c-lane              { fill: var(--lane-fill); stroke: var(--lane-stroke); stroke-dasharray: 6,6; }
 
     /* Optional trace animation, enabled only by meta.animation = "trace".
        The ordinary viewer performs one ambient pass and then restores the
@@ -7905,7 +7929,10 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
       function renderPassport(id, node) {
         setPassportValue(detail, node.getAttribute('data-node-sublabel'));
         setPassportValue(kind, viewerKindLabel(node.getAttribute('data-node-kind') || 'node'));
-        setPassportValue(context, node.getAttribute('data-node-context'));
+        var executionDomainLabel = node.getAttribute('data-node-execution-domain-label') || node.getAttribute('data-node-execution-domain') || '';
+        var executionContext = node.getAttribute('data-node-execution-context') || '';
+        var executionContextLabel = executionContext ? viewerText('embedded.context.' + executionContext) : '';
+        setPassportValue(context, [node.getAttribute('data-node-context'), executionDomainLabel, executionContextLabel].filter(Boolean).join(' · '));
         setPassportValue(tag, node.getAttribute('data-node-tag'));
         setPassportValue(document.getElementById('focus-brand'), node.getAttribute('data-node-brand'));
         semanticId.textContent = id;
@@ -12718,6 +12745,9 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
         var context = node.getAttribute('data-node-context') || '';
         var tag = node.getAttribute('data-node-tag') || '';
         var brand = node.getAttribute('data-node-brand') || '';
+        var executionDomain = node.getAttribute('data-node-execution-domain') || '';
+        var executionDomainLabel = node.getAttribute('data-node-execution-domain-label') || '';
+        var executionContext = node.getAttribute('data-node-execution-context') || '';
         var type = semanticType(node);
         var sources = Archify.sourceEvidence.node(id);
         var sourceSearch = sources.map(function (source) {
@@ -12731,9 +12761,12 @@ OTHER DEALINGS IN THE FONT SOFTWARE.
           context: context,
           tag: tag,
           brand: brand,
+          executionDomain: executionDomain,
+          executionDomainLabel: executionDomainLabel,
+          executionContext: executionContext,
           sources: sources,
           links: connectionsFor(id),
-          search: (id + ' ' + label + ' ' + type + ' ' + sublabel + ' ' + context + ' ' + tag + ' ' + sourceSearch + ' ' + text).toLowerCase() + ' ' + brand.toLowerCase(),
+          search: (id + ' ' + label + ' ' + type + ' ' + sublabel + ' ' + context + ' ' + executionDomain + ' ' + executionDomainLabel + ' ' + executionContext + ' ' + tag + ' ' + sourceSearch + ' ' + text).toLowerCase() + ' ' + brand.toLowerCase(),
           node: node
         };
       });

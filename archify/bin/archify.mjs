@@ -472,6 +472,7 @@ async function commandCompare(args) {
   }
   const {
     ArchitectureDeltaError,
+    assertArchitectureEmbeddedCompareSupported,
     annotateArchitectureSideSvg,
     buildDeltaSvg,
     canonicalArchitecture,
@@ -549,6 +550,15 @@ async function commandCompare(args) {
     head = JSON.parse(headBuffer.toString('utf8'));
   } catch (error) {
     reportCompareFailure({ json: options.json, stage: 'input', error: `Could not read head input: ${error.message}`, code: 'delta/head-input', details: { side: 'head', reason: error.message } });
+    return;
+  }
+
+  try {
+    assertArchitectureEmbeddedCompareSupported(base, 'base');
+    assertArchitectureEmbeddedCompareSupported(head, 'head');
+  } catch (error) {
+    if (!(error instanceof ArchitectureDeltaError)) throw error;
+    reportCompareFailure({ json: options.json, stage: 'compare', error: error.message, code: error.code, details: error.details });
     return;
   }
 

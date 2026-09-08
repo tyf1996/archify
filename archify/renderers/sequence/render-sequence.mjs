@@ -8,6 +8,14 @@ import { componentFill, arrowClassMap, rectsOverlap, cleanFlowProblems, cleanCro
 import { availableNodeTextWidth, fittedNodeFontSize, minimumNodeTextWidth } from '../shared/text-fit.mjs';
 import { brandLabelFitWidth, brandMetadataFor, brandTopRailProblem, renderBrandMark } from '../shared/brand-marks.mjs';
 import { translateMessage as i18nText } from '../shared/i18n.mjs';
+import {
+  EMBEDDED_COMPONENT_TYPES,
+  embeddedNodeDetail,
+  embeddedNodeMetadata,
+  hasEmbeddedComponentTypes,
+  relationDisplayLabel,
+  relationMechanismLabel,
+} from '../shared/embedded.mjs';
 
 const participantTextFit = {
   sublabelPreferred: 7,
@@ -38,11 +46,14 @@ const colGap = columnFit === 'spread' && participantCount > 1
   ? Math.max(108, (viewBox[0] - 40 - sideMargin - participantW) / (participantCount - 1))
   : 108;
 
+const participantHasExecutionDetail = asArray(sequence.participants)
+  .some((participant) => participant.execution_domain || participant.execution_context);
+const participantH = participantHasExecutionDetail ? 70 : 54;
 const layout = {
   topY: 72,
   participantW,
-  participantH: 54,
-  lifelineTop: 142,
+  participantH,
+  lifelineTop: 72 + participantH + 16,
   lifelineBottom: viewBox[1] - 65,
   legendY: viewBox[1] - 54,
   leftX: columnFit === 'spread' ? sideMargin + participantW / 2 : sideMargin,
@@ -87,14 +98,19 @@ function messageGeometry(message) {
   return { start, end, center: (start + end) / 2 };
 }
 
+function messageDisplayLabel(message) {
+  return relationDisplayLabel(message, sequence.meta.locale);
+}
+
 function messageLabelBox(message, relationIndex = null) {
   const geometry = messageGeometry(message);
   if (!geometry) return null;
-  const width = Math.max(34, textUnits(message.label) * 5.2 + 12);
+  const displayLabel = messageDisplayLabel(message);
+  const width = Math.max(34, textUnits(displayLabel) * 5.2 + 12);
   return {
     relation: message,
     relationIndex,
-    label: message.label,
+    label: displayLabel,
     x: geometry.center - width / 2,
     y: message.y - 20,
     width,
@@ -162,11 +178,15 @@ function validateSequence() {
     if (brandRailProblem) problems.push(brandRailProblem);
     // sublabel renders as a single unwrapped <text>; shrink-to-fit handles the
     // ordinary case, this rejects what it cannot rescue.
-    if (participant.sublabel) {
-      const availableTextW = availableNodeTextWidth(layout.participantW);
-      const minimumW = minimumNodeTextWidth(participant.sublabel, participantTextFit.sublabelMinimum);
+    const availableTextW = availableNodeTextWidth(layout.participantW);
+    for (const [field, value] of [
+      ['Sublabel', participant.sublabel],
+      ['Execution detail', embeddedNodeDetail(sequence, participant, sequence.meta.locale)],
+    ]) {
+      if (!value) continue;
+      const minimumW = minimumNodeTextWidth(value, participantTextFit.sublabelMinimum);
       if (minimumW > availableTextW) {
-        problems.push(`Sublabel "${participant.sublabel}" needs ~${Math.ceil(minimumW)}px at the ${participantTextFit.sublabelMinimum}px legible minimum, but participant "${participant.id}" provides ${availableTextW}px — shorten the sublabel (${participantBoxWidthNote}).`);
+        problems.push(`${field} "${value}" needs ~${Math.ceil(minimumW)}px at the ${participantTextFit.sublabelMinimum}px legible minimum, but participant "${participant.id}" provides ${availableTextW}px — shorten the ${field.toLowerCase()} (${participantBoxWidthNote}).`);
       }
     }
   }
@@ -312,8 +332,12 @@ function validateSequence() {
 function renderParticipant(participant) {
   const fill = componentFill[participant.type] || 'c-external';
   const hasSub = participant.sublabel != null && participant.sublabel !== '';
+  const embeddedDetail = embeddedNodeDetail(sequence, participant, sequence.meta.locale);
   const sub = hasSub
     ? `\n          <text data-detail="context" x="${participant.cx}" y="${layout.topY + 39}" class="t-muted" font-size="${fittedNodeFontSize(participant.sublabel, layout.participantW, participantTextFit.sublabelPreferred, participantTextFit.sublabelMinimum)}" text-anchor="middle">${esc(participant.sublabel)}</text>`
+    : '';
+  const execution = embeddedDetail
+    ? `\n          <text data-detail="context" data-node-execution-detail="" x="${participant.cx}" y="${layout.topY + (hasSub ? 54 : 39)}" class="t-dim" font-size="${fittedNodeFontSize(embeddedDetail, layout.participantW, participantTextFit.sublabelPreferred, participantTextFit.sublabelMinimum)}" text-anchor="middle">${esc(embeddedDetail)}</text>`
     : '';
   const brand = renderBrandMark(participant, { x: participant.x + layout.participantW - 22, y: layout.topY + 6 });
   const labelFontSize = fittedNodeFontSize(participant.label, brandLabelFitWidth(participant, layout.participantW), 11, 8);
@@ -321,6 +345,7 @@ function renderParticipant(participant) {
     kind: participant.type,
     sublabel: participant.sublabel,
     context: i18nText(sequence.meta.locale, 'node.context.sequence'),
+    ...embeddedNodeMetadata(sequence, participant, sequence.meta.locale),
     ...brandMetadataFor(participant),
   };
   return `        <g ${focusNodeAttrs(participant.id, participant.label, passport, sequence.meta.locale)}>
@@ -328,7 +353,7 @@ function renderParticipant(participant) {
           <rect x="${participant.x}" y="${layout.topY}" width="${layout.participantW}" height="${layout.participantH}" rx="6" class="c-mask"/>
           <rect x="${participant.x}" y="${layout.topY}" width="${layout.participantW}" height="${layout.participantH}" rx="6" class="${fill}"${animateAttr(sequence.meta, 'node', participant.index)} stroke-width="1.5"/>
           ${renderSemanticSigil(participant.type, { x: participant.x + 6, y: layout.topY + 6 })}${brand ? `\n          ${brand}` : ''}
-          <text data-node-label=""${hasSub ? ' data-detail-anchor=""' : ''} x="${participant.cx}" y="${layout.topY + 22}" class="t-primary" font-size="${labelFontSize}" font-weight="600" text-anchor="middle">${esc(participant.label)}</text>${sub}
+          <text data-node-label=""${hasSub || embeddedDetail ? ' data-detail-anchor=""' : ''} x="${participant.cx}" y="${layout.topY + 22}" class="t-primary" font-size="${labelFontSize}" font-weight="600" text-anchor="middle">${esc(participant.label)}</text>${sub}${execution}
         </g>`;
 }
 
@@ -361,7 +386,8 @@ function messageLabel(message, x1, x2) {
   const box = messageLabelBox(message);
   const center = box ? box.x + box.width / 2 : (x1 + x2) / 2;
   const y = message.y - 10;
-  const labelW = box?.width || Math.max(34, textUnits(message.label) * 5.2 + 12);
+  const displayLabel = messageDisplayLabel(message);
+  const labelW = box?.width || Math.max(34, textUnits(displayLabel) * 5.2 + 12);
   const accent = message.variant === 'security'
     ? 't-security'
     : message.variant === 'dashed'
@@ -371,7 +397,7 @@ function messageLabel(message, x1, x2) {
         : 't-backend';
   return `        <g data-detail="context">
           <rect x="${center - labelW / 2}" y="${y - 10}" width="${labelW}" height="${layout.labelH}" rx="3" class="c-mask"/>
-          <text x="${center}" y="${y}" class="${accent}" font-size="9" text-anchor="middle">${esc(message.label)}</text>
+          <text x="${center}" y="${y}" class="${accent}" font-size="9" text-anchor="middle">${esc(displayLabel)}</text>
         </g>`;
 }
 
@@ -383,13 +409,16 @@ function renderMessage(message, index) {
   const note = message.note
     ? `\n        <text data-detail="fine" x="${Math.min(start, end) + 12}" y="${message.y + 18}" class="t-dim" font-size="7">${esc(message.note)}</text>`
     : '';
-  return `        <g ${focusEdgeAttrs(message.from, message.to, message.label, index, message.id)}>
+  const displayLabel = messageDisplayLabel(message);
+  const mechanismLabel = relationMechanismLabel(sequence.meta.locale, message.mechanism);
+  const title = message.mechanism ? `\n          <title>${esc(displayLabel)}</title>` : '';
+  return `        <g ${focusEdgeAttrs(message.from, message.to, displayLabel, index, message.id, { mechanism: message.mechanism, mechanismLabel })}>${title}
           <path data-composition-edge-from="${esc(message.from)}" data-composition-edge-to="${esc(message.to)}"${message.id ? ` data-composition-edge-id="${esc(message.id)}"` : ''} data-composition-points="${routePointsValue([[start, message.y], [end, message.y]])}" d="M ${start} ${message.y} L ${end} ${message.y}" class="${cls}"${animateAttr(sequence.meta, 'edge', index)} stroke-width="${strokeWidth}"${dash} marker-end="url(#${marker})"/>
 ${messageLabel(message, start, end)}${note}
         </g>`;
 }
 
-const LEGEND_CATALOG = [
+const LEGACY_LEGEND_CATALOG = [
   { kind: 'emphasis', className: 'a-emphasis', marker: 'arrowhead-emphasis', strokeWidth: 1.8 },
   { kind: 'return', className: 'a-default', marker: 'arrowhead', dash: '3,5' },
   { kind: 'security', className: 'a-security', marker: 'arrowhead-security' },
@@ -402,9 +431,18 @@ const LEGEND_CATALOG = [
   swatchGap: 9,
   label: i18nText(sequence.meta.locale, `legend.sequence.${entry.kind}`),
 }));
+const LEGEND_CATALOG = [
+  ...LEGACY_LEGEND_CATALOG,
+  ...(hasEmbeddedComponentTypes(sequence.participants)
+    ? EMBEDDED_COMPONENT_TYPES.map((kind) => ({ kind, nodeKind: true, label: i18nText(sequence.meta.locale, `viewer.kind.${kind}`) }))
+    : []),
+];
 
 function renderLegend() {
   const presentKinds = new Set(asArray(sequence.messages).map((message) => message.variant || 'default'));
+  for (const participant of participants.values()) {
+    if (EMBEDDED_COMPONENT_TYPES.includes(participant.type)) presentKinds.add(participant.type);
+  }
   const entries = resolveLegend(sequence.meta?.legend, LEGEND_CATALOG, presentKinds);
   return renderResolvedLegend({
     entries,
@@ -417,7 +455,9 @@ function renderLegend() {
       unfit: sequence.meta?.legend === undefined ? 'hide' : 'error',
       diagramType: 'sequence',
     },
-    renderSwatch: (entry) => `<path d="M ${entry.x} ${entry.baseline - 3} L ${entry.x + 34} ${entry.baseline - 3}" class="${entry.className}" stroke-width="${entry.strokeWidth || 1.4}"${entry.dash ? ` stroke-dasharray="${entry.dash}"` : ''} marker-end="url(#${entry.marker})"/>`,
+    renderSwatch: (entry) => entry.nodeKind
+      ? `<rect x="${entry.x}" y="${entry.baseline - 8}" width="14" height="9" rx="2" class="${componentFill[entry.kind] || 'c-external'}" stroke-width="1"/>`
+      : `<path d="M ${entry.x} ${entry.baseline - 3} L ${entry.x + 34} ${entry.baseline - 3}" class="${entry.className}" stroke-width="${entry.strokeWidth || 1.4}"${entry.dash ? ` stroke-dasharray="${entry.dash}"` : ''} marker-end="url(#${entry.marker})"/>`,
   });
 }
 

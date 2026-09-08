@@ -43,6 +43,15 @@ const SIGIL_TONE = {
   messagebus: 'messagebus',
   external: 'external',
   neutral: 'external',
+  software: 'backend',
+  process: 'frontend',
+  thread: 'cloud',
+  task: 'backend',
+  isr: 'security',
+  hardware: 'external',
+  buffer: 'cloud',
+  memory: 'database',
+  bus: 'messagebus',
 };
 
 const SIGIL_SHAPE = {
@@ -72,6 +81,21 @@ const SIGIL_SHAPE = {
             <path d="m5.7 5.7 4.6 4.6m0-4.6-4.6 4.6"/>`,
   neutral: `<rect x="3" y="3" width="10" height="10" rx="2"/>
             <circle cx="8" cy="8" r="1.2" class="sigil-fill"/>`,
+  software: `<path d="M3 4h10v8H3zM5 2.5v3M8 2.5v3M11 2.5v3"/>`,
+  process: `<rect x="2.5" y="3" width="11" height="10" rx="1.8"/>
+            <path d="M2.5 6h11M5 8.5h6"/>`,
+  thread: `<path d="M3 4h6a2 2 0 0 1 0 4H6a2 2 0 0 0 0 4h7"/>
+            <circle cx="3" cy="4" r="1" class="sigil-fill"/><circle cx="13" cy="12" r="1" class="sigil-fill"/>`,
+  task: `<rect x="3" y="2.5" width="10" height="11" rx="2"/>
+            <path d="m5 8 2 2 4-5"/>`,
+  isr: `<path d="M9 1.8 4.5 8H8l-1 6.2L12.5 7H9Z"/>`,
+  hardware: `<rect x="3" y="3" width="10" height="10" rx="1"/>
+            <path d="M1 5h2M1 8h2M1 11h2M13 5h2M13 8h2M13 11h2M5 1v2M8 1v2M11 1v2M5 13v2M8 13v2M11 13v2"/>`,
+  buffer: `<path d="M3 4h10v3H3zM3 9h10v3H3z"/>
+            <path d="M5 7v2M11 7v2"/>`,
+  memory: `<path d="M3 3h10v10H3zM5 6h6M5 8h6M5 10h4"/>`,
+  bus: `<path d="M2 5h12M2 11h12M4 5v6M8 5v6M12 5v6"/>
+            <circle cx="4" cy="5" r="1" class="sigil-fill"/><circle cx="8" cy="11" r="1" class="sigil-fill"/>`,
 };
 
 // A quiet, renderer-owned role stamp. It is authored SVG content rather than a

@@ -20,7 +20,7 @@
         "animation": { "$ref": "common.schema.json#/$defs/animation" },
         "visual_preset": { "$ref": "common.schema.json#/$defs/visualPreset" },
         "quality_profile": { "$ref": "common.schema.json#/$defs/qualityProfile" },
-        "engineering_profile": { "enum": ["deployment-ownership"] },
+        "engineering_profile": { "enum": ["deployment-ownership", "embedded-runtime"] },
         "repository": {
           "type": "object",
           "additionalProperties": false,
@@ -51,7 +51,16 @@
                 "cloud": { "$ref": "common.schema.json#/$defs/legendEntry" },
                 "security": { "$ref": "common.schema.json#/$defs/legendEntry" },
                 "messagebus": { "$ref": "common.schema.json#/$defs/legendEntry" },
-                "external": { "$ref": "common.schema.json#/$defs/legendEntry" }
+                "external": { "$ref": "common.schema.json#/$defs/legendEntry" },
+                "software": { "$ref": "common.schema.json#/$defs/legendEntry" },
+                "process": { "$ref": "common.schema.json#/$defs/legendEntry" },
+                "thread": { "$ref": "common.schema.json#/$defs/legendEntry" },
+                "task": { "$ref": "common.schema.json#/$defs/legendEntry" },
+                "isr": { "$ref": "common.schema.json#/$defs/legendEntry" },
+                "hardware": { "$ref": "common.schema.json#/$defs/legendEntry" },
+                "buffer": { "$ref": "common.schema.json#/$defs/legendEntry" },
+                "memory": { "$ref": "common.schema.json#/$defs/legendEntry" },
+                "bus": { "$ref": "common.schema.json#/$defs/legendEntry" }
               }
             }
           }
@@ -66,6 +75,15 @@
           "minItems": 2,
           "maxItems": 2
         }
+      }
+    },
+    "execution_domains": { "$ref": "common.schema.json#/$defs/executionDomains" },
+    "semanticChecks": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "requiredRelations": { "$ref": "common.schema.json#/$defs/requiredRelations" }
       }
     },
     "layout": {
@@ -96,6 +114,8 @@
           "sublabel": { "type": "string" },
           "tag": { "type": "string" },
           "brand": { "$ref": "common.schema.json#/$defs/brandMark" },
+          "execution_domain": { "$ref": "common.schema.json#/$defs/id" },
+          "execution_context": { "$ref": "common.schema.json#/$defs/executionContext" },
           "sources": {
             "type": "array",
             "minItems": 1,
@@ -135,7 +155,12 @@
         "additionalProperties": false,
         "required": ["kind", "label", "wraps"],
         "properties": {
-          "kind": { "enum": ["region", "security-group"] },
+          "kind": {
+            "enum": [
+              "region", "security-group", "hardware", "execution-domain",
+              "privilege-domain", "address-space", "power-domain", "clock-domain"
+            ]
+          },
           "label": { "type": "string", "minLength": 1 },
           "wraps": {
             "type": "array",
@@ -158,6 +183,7 @@
           "to": { "$ref": "common.schema.json#/$defs/id" },
           "label": { "type": "string" },
           "variant": { "$ref": "common.schema.json#/$defs/variant" },
+          "mechanism": { "$ref": "common.schema.json#/$defs/mechanism" },
           "fromSide": { "$ref": "common.schema.json#/$defs/side" },
           "toSide": { "$ref": "common.schema.json#/$defs/side" },
           "route": { "enum": ["auto", "straight", "orthogonal-h", "orthogonal-v"] },

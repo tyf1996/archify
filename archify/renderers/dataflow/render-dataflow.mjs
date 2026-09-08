@@ -8,6 +8,15 @@ import { availableNodeTextWidth, fittedNodeFontSize, minimumNodeTextWidth } from
 import { brandLabelFitWidth, brandMetadataFor, brandTopRailProblem, renderBrandMark } from '../shared/brand-marks.mjs';
 import { translateMessage as i18nText } from '../shared/i18n.mjs';
 import {
+  EMBEDDED_COMPONENT_TYPES,
+  embeddedNodeDetail,
+  embeddedNodeMetadata,
+  embeddedNodeMinimumHeight,
+  hasEmbeddedComponentTypes,
+  relationDisplayLabel,
+  relationMechanismLabel,
+} from '../shared/embedded.mjs';
+import {
   asArray,
   isFinitePoint,
   rectsOverlap,
@@ -62,8 +71,12 @@ const layout = {
   labelH: 16
 };
 
+function flowDisplayLabel(flow) {
+  return relationDisplayLabel(flow, dataflow.meta.locale);
+}
+
 function flowLabelSize(flow) {
-  const longestLine = Math.max(textUnits(flow.label), textUnits(flow.classification || ''));
+  const longestLine = Math.max(textUnits(flowDisplayLabel(flow)), textUnits(flow.classification || ''));
   return {
     width: Math.round(Math.max(34, longestLine * 4.9 + 12) * 10) / 10,
     height: flow.classification ? 27 : layout.labelH,
@@ -91,7 +104,7 @@ const compositionFrames = asArray(dataflow.stages).map(stageFrame);
 
 function measureNode(node) {
   const width = node.width || layout.nodeW;
-  const height = node.height || layout.nodeH;
+  const height = Math.max(node.height || layout.nodeH, embeddedNodeMinimumHeight(node, layout.nodeH));
   const cx = stageX(node.stage);
   const y = layout.rowYs[node.row] + (node.yOffset || 0);
   return {
@@ -146,8 +159,10 @@ function validateDataflow() {
     // sublabel and tag render as single unwrapped <text> elements; shrink-to-fit
     // handles the ordinary case, this rejects what it cannot rescue.
     const availableTextW = availableNodeTextWidth(node.width);
+    const embeddedDetail = embeddedNodeDetail(dataflow, node, dataflow.meta.locale);
     for (const [field, value, minimum] of [
       ['Sublabel', node.sublabel, nodeTextFit.sublabelMinimum],
+      ['Execution detail', embeddedDetail, nodeTextFit.sublabelMinimum],
       ['Tag', node.tag, nodeTextFit.tagMinimum],
     ]) {
       if (!value) continue;
@@ -373,8 +388,12 @@ function renderNode(node) {
   const fill = componentFill[node.type] || 'c-external';
   const accent = componentText[node.type] || 't-muted';
   const hasSub = node.sublabel != null && node.sublabel !== '';
+  const embeddedDetail = embeddedNodeDetail(dataflow, node, dataflow.meta.locale);
   const sub = hasSub
     ? `\n          <text data-detail="context" x="${node.cx}" y="${node.y + 37}" class="t-muted" font-size="${fittedNodeFontSize(node.sublabel, node.width, nodeTextFit.sublabelPreferred, nodeTextFit.sublabelMinimum)}" text-anchor="middle">${esc(node.sublabel)}</text>`
+    : '';
+  const execution = embeddedDetail
+    ? `\n          <text data-detail="context" data-node-execution-detail="" x="${node.cx}" y="${node.y + (hasSub ? 52 : 37)}" class="t-dim" font-size="${fittedNodeFontSize(embeddedDetail, node.width, nodeTextFit.sublabelPreferred, nodeTextFit.sublabelMinimum)}" text-anchor="middle">${esc(embeddedDetail)}</text>`
     : '';
   const tag = node.tag
     ? `\n        <text data-detail="fine" x="${node.cx}" y="${node.y + node.height - 11}" class="${accent}" font-size="${fittedNodeFontSize(node.tag, node.width, nodeTextFit.tagPreferred, nodeTextFit.tagMinimum)}" text-anchor="middle">${esc(node.tag)}</text>`
@@ -385,13 +404,13 @@ function renderNode(node) {
     : i18nText(dataflow.meta.locale, 'node.context.dataflow');
   const brand = renderBrandMark(node, { x: node.x + node.width - 22, y: node.y + 6 });
   const labelFontSize = fittedNodeFontSize(node.label, brandLabelFitWidth(node, node.width), 10, 8);
-  const passport = { kind: node.type, sublabel: node.sublabel, tag: node.tag, context, ...brandMetadataFor(node) };
+  const passport = { kind: node.type, sublabel: node.sublabel, tag: node.tag, context, ...embeddedNodeMetadata(dataflow, node, dataflow.meta.locale), ...brandMetadataFor(node) };
   return `        <g ${focusNodeAttrs(node.id, node.label, passport, dataflow.meta.locale)}>
           ${focusNodeTitle(node.label, passport)}
           <rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="6" class="c-mask"/>
           <rect x="${node.x}" y="${node.y}" width="${node.width}" height="${node.height}" rx="6" class="${fill}"${animateAttr(dataflow.meta, 'node', nodeSteps.get(node.id))} stroke-width="1.5"/>
           ${renderSemanticSigil(node.type, { x: node.x + 6, y: node.y + 6 })}${brand ? `\n          ${brand}` : ''}
-          <text data-node-label=""${hasSub ? ' data-detail-anchor=""' : ''} x="${node.cx}" y="${node.y + 21}" class="t-primary" font-size="${labelFontSize}" font-weight="600" text-anchor="middle">${esc(node.label)}</text>${sub}${tag}
+          <text data-node-label=""${hasSub || embeddedDetail ? ' data-detail-anchor=""' : ''} x="${node.cx}" y="${node.y + 21}" class="t-primary" font-size="${labelFontSize}" font-weight="600" text-anchor="middle">${esc(node.label)}</text>${sub}${execution}${tag}
         </g>`;
 }
 
@@ -399,36 +418,49 @@ function renderFlowPath(flow, index) {
   const [cls, marker] = arrowClassMap[flow.variant || 'default'] || arrowClassMap.default;
   const routed = pathFor(flow);
   const strokeWidth = flow.width || (flow.variant === 'emphasis' ? 1.8 : 1.4);
-  return `        <path ${focusEdgeAttrs(flow.from, flow.to, flow.label, index, flow.id)} data-composition-points="${routePointsValue(routed.points)}" d="${routed.d}" class="${cls}"${animateAttr(dataflow.meta, 'edge', index)} stroke-width="${strokeWidth}" marker-end="url(#${marker})"/>`;
+  const displayLabel = flowDisplayLabel(flow);
+  const mechanismLabel = relationMechanismLabel(dataflow.meta.locale, flow.mechanism);
+  return `        <path ${focusEdgeAttrs(flow.from, flow.to, displayLabel, index, flow.id, { mechanism: flow.mechanism, mechanismLabel })} data-composition-points="${routePointsValue(routed.points)}" d="${routed.d}" class="${cls}"${animateAttr(dataflow.meta, 'edge', index)} stroke-width="${strokeWidth}" marker-end="url(#${marker})"/>`;
 }
 
 function renderFlowLabel(flow, index) {
   const routed = pathFor(flow);
   const [lx, ly] = labelPoint(flow, routed.points);
   const { width: labelW, height: labelH } = flowLabelSize(flow);
+  const displayLabel = flowDisplayLabel(flow);
+  const mechanismLabel = relationMechanismLabel(dataflow.meta.locale, flow.mechanism);
   const classification = flow.classification
     ? `\n        <text data-detail="fine" x="${lx}" y="${ly + 11}" class="t-dim" font-size="7" text-anchor="middle">${esc(flow.classification)}</text>`
     : '';
-  return `        <g data-detail="context" ${focusEdgeAttrs(flow.from, flow.to, flow.label, index, flow.id)}>
+  const title = flow.mechanism ? `\n          <title>${esc(displayLabel)}</title>` : '';
+  return `        <g data-detail="context" ${focusEdgeAttrs(flow.from, flow.to, displayLabel, index, flow.id, { mechanism: flow.mechanism, mechanismLabel })}>${title}
           <rect x="${lx - labelW / 2}" y="${ly - 11}" width="${labelW}" height="${labelH}" rx="4" class="c-mask"/>
-          <text x="${lx}" y="${ly}" class="${variantAccent(flow.variant)}" font-size="8" text-anchor="middle">${esc(flow.label)}</text>${classification}
+          <text x="${lx}" y="${ly}" class="${variantAccent(flow.variant)}" font-size="8" text-anchor="middle">${esc(displayLabel)}</text>${classification}
         </g>`;
 }
 
-const LEGEND_CATALOG = [
+const LEGACY_LEGEND_CATALOG = [
   { kind: 'emphasis', className: 'a-emphasis', marker: 'arrowhead-emphasis', strokeWidth: 1.8, swatchWidth: 34, swatchGap: 9, interactive: false },
   { kind: 'security', className: 'a-security', marker: 'arrowhead-security', swatchWidth: 34, swatchGap: 9, interactive: false },
   { kind: 'dashed', className: 'a-dashed', marker: 'arrowhead-dashed', swatchWidth: 34, swatchGap: 9, interactive: false },
-  { kind: 'database' },
+  { kind: 'database', nodeKind: true },
   { kind: 'default', className: 'a-default', marker: 'arrowhead', swatchWidth: 34, swatchGap: 9, interactive: false },
 ].map((entry) => ({
   ...entry,
   label: i18nText(dataflow.meta.locale, `legend.dataflow.${entry.kind}`),
 }));
+const LEGEND_CATALOG = [
+  ...LEGACY_LEGEND_CATALOG,
+  ...(hasEmbeddedComponentTypes(dataflow.nodes)
+    ? EMBEDDED_COMPONENT_TYPES.map((kind) => ({ kind, nodeKind: true, label: i18nText(dataflow.meta.locale, `viewer.kind.${kind}`) }))
+    : []),
+];
 
 function renderLegend() {
   const presentKinds = new Set(asArray(dataflow.flows).map((flow) => flow.variant || 'default'));
-  if ([...nodes.values()].some((node) => node.type === 'database')) presentKinds.add('database');
+  for (const node of nodes.values()) {
+    if (node.type === 'database' || EMBEDDED_COMPONENT_TYPES.includes(node.type)) presentKinds.add(node.type);
+  }
   const entries = resolveLegend(dataflow.meta?.legend, LEGEND_CATALOG, presentKinds);
   return renderResolvedLegend({
     entries,
@@ -441,8 +473,8 @@ function renderLegend() {
       unfit: dataflow.meta?.legend === undefined ? 'hide' : 'error',
       diagramType: 'dataflow',
     },
-    renderSwatch: (entry) => entry.kind === 'database'
-      ? `<rect x="${entry.x}" y="${entry.baseline - 8}" width="14" height="9" rx="2" class="c-database" stroke-width="1"/>`
+    renderSwatch: (entry) => entry.nodeKind
+      ? `<rect x="${entry.x}" y="${entry.baseline - 8}" width="14" height="9" rx="2" class="${componentFill[entry.kind] || 'c-external'}" stroke-width="1"/>`
       : `<path d="M ${entry.x} ${entry.baseline - 3} L ${entry.x + 34} ${entry.baseline - 3}" class="${entry.className}" stroke-width="${entry.strokeWidth || 1.4}" marker-end="url(#${entry.marker})"/>`,
   });
 }
