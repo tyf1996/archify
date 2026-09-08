@@ -77,11 +77,13 @@ Supported keys are renderer-owned:
 
 | Renderer | `meta.legend.entries` keys |
 |---|---|
-| Architecture | `frontend`, `backend`, `database`, `cloud`, `security`, `messagebus`, `external` |
-| Workflow | `frontend`, `backend`, `security`, `messagebus`, `database`, `cloud`, `external` |
-| Sequence | `emphasis`, `return`, `security`, `dashed`, `default` |
-| Dataflow | `emphasis`, `security`, `dashed`, `database`, `default` |
+| Architecture | legacy seven plus `software`, `process`, `thread`, `task`, `isr`, `hardware`, `buffer`, `memory`, `bus` |
+| Workflow | legacy seven plus `software`, `process`, `thread`, `task`, `isr`, `hardware`, `buffer`, `memory`, `bus` |
+| Sequence | message variants `emphasis`, `return`, `security`, `dashed`, `default`; embedded participant keys `software`, `process`, `thread`, `task`, `isr`, `hardware`, `buffer`, `memory`, `bus` |
+| Dataflow | flow variants `emphasis`, `security`, `dashed`, `default`, node key `database`; embedded node keys `software`, `process`, `thread`, `task`, `isr`, `hardware`, `buffer`, `memory`, `bus` |
 | Lifecycle | `start`, `active`, `waiting`, `decision`, `success`, `failure`, `neutral`, `external` |
+
+Embedded node keys join the resolved catalog only when the document actually uses an embedded component type. Therefore a pure legacy document keeps its historical `auto` and `all` legend catalog and geometry.
 
 Labels are presentation only: they do not rename the stable kind, change
 nodes/relationships, or create Semantic Lens edge facts. Sequence message and
@@ -134,7 +136,7 @@ version; additive, backwards-compatible fields do not.
 
 The embedded interface is optional and additive. It does not create a diagram type and does not change the five existing renderer types. The seven original component types are the legacy compatibility subset; the full embedded role directory adds `software`, `process`, `thread`, `task`, `isr`, `hardware`, `buffer`, `memory`, and `bus`. `hardware` covers processors, peripherals, and DMA actors, while DMA movement remains a relationship mechanism rather than a new node role.
 
-A document may declare `execution_domains` with a unique non-empty `id` and a non-empty `label`; `environment` is `linux`, `rtos`, or `bare-metal`, with optional runtime, version, processor, and cores. Supported node collections may reference a domain with `execution_domain` and name an `execution_context`; relationship collections may name one approved `mechanism`. `semanticChecks.requiredRelations` is an optional exact directed relationship contract. These fields are validated when present and do not infer missing entities or OS behavior.
+A document may declare `execution_domains` as a non-empty array; an empty array is rejected and omission means no domains are declared. Each domain has a unique non-empty `id` and a non-empty `label`; `environment` is `linux`, `rtos`, or `bare-metal`, with optional runtime, version, processor, and cores. Supported node collections may reference a domain with `execution_domain` and name an `execution_context`; relationship collections may name one approved `mechanism`. `semanticChecks.requiredRelations` is an optional exact directed relationship contract. These fields are validated when present and do not infer missing entities or OS behavior.
 
 The `embedded-runtime` engineering profile is opt-in for all five diagram types and distinct from `deployment-ownership`, which remains Architecture-only. It raises completeness requirements for evidence-backed execution ownership and cross-domain mechanisms; it does not prove scheduling, API legality, DMA, cache coherence, or real-time bounds. `linux-kernel` means kernel thread/process context and `linux-irq` means non-threaded interrupt context; threaded IRQ is not inferred as `linux-irq`. `software` may span multiple contexts, and bare-metal runtime/version identify firmware. Unknown required facts remain blocking under the profile; unrelated unknowns remain visible without fabricated nodes.
 
