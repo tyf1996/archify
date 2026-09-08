@@ -26,6 +26,10 @@ test('semantic relationship labels are preserved and deletion is not a geometry 
 
 test('embedded authoring stays question-first, bounded, and profile-safe', () => {
   assert.match(skill, /target-firmware evidence/);
+  assert.match(skill, /Inspect the target repository read-only/);
+  assert.match(skill, /write only the diagram or its evidence\/delivery materials/);
+  assert.match(skill, /missing build artifacts stay unknown/);
+  assert.match(skill, /Do not default to building, downloading an SDK, launching a simulator, or accessing\/writing a device/);
   assert.match(skill, /Artifact first/);
   assert.match(skill, /OS name alone never chooses the diagram type/);
   assert.match(skill, /embedded-runtime/);
@@ -33,8 +37,14 @@ test('embedded authoring stays question-first, bounded, and profile-safe', () =>
   assert.match(authoringContract, /execution_context/);
   assert.match(authoringContract, /execution domain/);
   assert.match(authoringContract, /`embedded-runtime` is opt-in/);
-  assert.match(schemaReadme, /nine added component roles/);
+  assert.match(authoringContract, /Inspect the target project read-only/);
+  assert.match(authoringContract, /Missing build artifacts remain unknown/);
+  assert.match(authoringContract, /do not default to building, downloading an SDK, launching a simulator, or accessing\/writing a device/);
+  assert.match(schemaReadme, /full embedded role directory adds/);
   assert.match(schemaReadme, /Other diagram types do not expand `--repo-root`/);
+  assert.match(schemaReadme, /embedded-runtime.*all five diagram types/s);
+  assert.match(schemaReadme, /deployment-ownership.*Architecture-only/s);
+  assert.match(schemaReadme, /unique non-empty `id`.*non-empty `label`/s);
 });
 
 test('schema policy documents the workflow v1/v2 compatibility boundary', () => {

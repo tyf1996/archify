@@ -26,6 +26,18 @@
 - sequence 和动画表达顺序，不表达真实时间比例；预算、观测值和最坏界限分别标注。
 - 领域文档不得引用未批准的新字段；具体字段形状以现有 Schema 和通用 authoring contract 为准。
 
+## A1 语义速查
+
+完整角色目录以 [Schema 说明](../../schemas/README.md#embedded-interface-a1) 为准：七个原有 component type 是 legacy 兼容子集；嵌入式新增 `software`、`process`、`thread`、`task`、`isr`、`hardware`、`buffer`、`memory`、`bus`。
+
+- `embedded-runtime` 可用于五种既有图种；`deployment-ownership` 仅用于 Architecture。
+- execution domain 的 `id` 必须唯一，`label` 只要求非空；`environment` 是 `linux`、`rtos` 或 `bare-metal`。裸机的 runtime/version 表示固件身份。
+- `linux-kernel` 表示内核线程／进程上下文，`linux-irq` 表示非线程化中断上下文；threaded IRQ 不自动归为 `linux-irq`。
+- `software` 可以跨多个执行上下文；task/thread 可能只是同一生态中的命名差异，不强制拆成不同调度实体。
+- 画像只在事实充分时启用，不证明调度、API 合法性、DMA、缓存一致性或实时界限；缺少必需事实时保留未知或阻断画像。
+
+其他包内文档链接此处，不重复定义角色与画像范围。
+
 ## 官方依据
 
 领域材料中的官方依据、版本边界与反例见各文档末尾。K0 证据包位于 lane 交接目录，仅作为作者线索，不随 Skill 作为运行时依赖。

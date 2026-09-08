@@ -66,6 +66,26 @@ test('entry guidance distinguishes execution entities from callback mechanisms',
   assert.match(readme, /不强制拆成不同调度实体/);
 });
 
+test('embedded interface documentation stays internally consistent', () => {
+  const readme = read('README.md');
+  const schema = fs.readFileSync(path.join(root, 'schemas', 'README.md'), 'utf8');
+  for (const role of ['software', 'process', 'thread', 'task', 'isr', 'hardware', 'buffer', 'memory', 'bus']) {
+    const rolePattern = new RegExp('`' + role + '`');
+    assert.match(readme, rolePattern, role);
+    assert.match(schema, rolePattern, role);
+  }
+  assert.match(readme, /`embedded-runtime` 可用于五种既有图种/);
+  assert.match(readme, /`deployment-ownership` 仅用于 Architecture/);
+  assert.match(readme, /execution domain 的 `id` 必须唯一，`label` 只要求非空/);
+  assert.match(readme, /`linux-kernel` 表示内核线程／进程上下文/);
+  assert.match(readme, /`linux-irq` 表示非线程化中断上下文/);
+  assert.match(readme, /threaded IRQ 不自动归为 `linux-irq`/);
+  assert.match(readme, /`software` 可以跨多个执行上下文/);
+  assert.match(readme, /runtime\/version 表示固件身份/);
+  assert.match(schema, /`embedded-runtime` engineering profile is opt-in for all five diagram types/);
+  assert.match(schema, /`deployment-ownership`, which remains Architecture-only/);
+});
+
 test('references state version, configuration, and unknown boundaries', () => {
   for (const file of [...domainFiles, ...ecosystemFiles.map((name) => `ecosystems/${name}`)]) {
     const source = read(file);

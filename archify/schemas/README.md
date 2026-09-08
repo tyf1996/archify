@@ -132,11 +132,11 @@ version; additive, backwards-compatible fields do not.
 
 ## Embedded interface (A1)
 
-The embedded interface is optional and additive. It does not create a diagram type and does not change the five existing renderer types. The nine added component roles are `software`, `process`, `thread`, `task`, `isr`, `hardware`, `buffer`, `memory`, and `bus`; `hardware` covers processors, peripherals, and DMA actors, while DMA movement remains a relationship mechanism rather than a new node role.
+The embedded interface is optional and additive. It does not create a diagram type and does not change the five existing renderer types. The seven original component types are the legacy compatibility subset; the full embedded role directory adds `software`, `process`, `thread`, `task`, `isr`, `hardware`, `buffer`, `memory`, and `bus`. `hardware` covers processors, peripherals, and DMA actors, while DMA movement remains a relationship mechanism rather than a new node role.
 
-A document may declare `execution_domains` with unique `id`/`label` and `environment` (`linux`, `rtos`, or `bare-metal`), plus optional runtime, version, processor, and cores. Supported node collections may reference a domain with `execution_domain` and name an `execution_context`; relationship collections may name one approved `mechanism`. `semanticChecks.requiredRelations` is an optional exact directed relationship contract. These fields are validated when present and do not infer missing entities or OS behavior.
+A document may declare `execution_domains` with a unique non-empty `id` and a non-empty `label`; `environment` is `linux`, `rtos`, or `bare-metal`, with optional runtime, version, processor, and cores. Supported node collections may reference a domain with `execution_domain` and name an `execution_context`; relationship collections may name one approved `mechanism`. `semanticChecks.requiredRelations` is an optional exact directed relationship contract. These fields are validated when present and do not infer missing entities or OS behavior.
 
-The `embedded-runtime` engineering profile is opt-in and distinct from `deployment-ownership`. It raises completeness requirements for evidence-backed execution ownership and cross-domain mechanisms; it does not prove scheduling, API legality, DMA, cache coherence, or real-time bounds. Unknown required facts remain blocking under the profile; unrelated unknowns remain visible without fabricated nodes.
+The `embedded-runtime` engineering profile is opt-in for all five diagram types and distinct from `deployment-ownership`, which remains Architecture-only. It raises completeness requirements for evidence-backed execution ownership and cross-domain mechanisms; it does not prove scheduling, API legality, DMA, cache coherence, or real-time bounds. `linux-kernel` means kernel thread/process context and `linux-irq` means non-threaded interrupt context; threaded IRQ is not inferred as `linux-irq`. `software` may span multiple contexts, and bare-metal runtime/version identify firmware. Unknown required facts remain blocking under the profile; unrelated unknowns remain visible without fabricated nodes.
 
 Architecture delta has an explicit limit: comparisons containing non-empty `execution_domains`, component execution-domain references, or `semanticChecks.requiredRelations` return structured non-zero `delta/embedded-context-unsupported` before canonicalization, rendering, or output. The comparison must preserve the previous trusted artifact and must not discard embedded facts or recommend deleting them. Single-diagram render/validate/deliver support the full approved interface. Other diagram types do not expand `--repo-root` evidence scope.
 
@@ -146,8 +146,9 @@ The five diagram schemas reference `common.schema.json#/$defs/...`:
 
 - `id` — element identifiers, pattern `^[a-zA-Z][a-zA-Z0-9_-]*$`
 - `point` — an `[x, y]` pair of numbers (used by `via` and `labelAt`)
-- `componentType` — `frontend`, `backend`, `database`, `cloud`, `security`,
-  `messagebus`, `external`
+- `componentType` — the seven legacy types `frontend`, `backend`, `database`,
+  `cloud`, `security`, `messagebus`, `external`; the full embedded role directory
+  is listed in the A1 section above
 - `locale` — the bounded renderer locale, `en` or `zh-CN`
 - `brandMark` — one optional built-in brand ID or explicit HTTP(S) site URL
 - `variant` — `default`, `emphasis`, `security`, `dashed` (sequence messages
@@ -186,11 +187,11 @@ exports carry no repository evidence.
 
 `meta.quality_profile` and `meta.engineering_profile` answer different
 questions. `quality_profile` is available in all five modes and controls how
-strictly Archify judges composition. `engineering_profile` is an optional
-Architecture-only semantic contract; omitting it preserves the ordinary v1
-behavior.
+strictly Archify judges composition. `engineering_profile` is optional; omitting
+it preserves ordinary behavior. The A1 `embedded-runtime` profile applies to all
+five diagram types, while `deployment-ownership` remains Architecture-only.
 
-The first engineering profile is `deployment-ownership`. Enable it only when
+The `deployment-ownership` profile is Architecture-only. Enable it only when
 the user wants a fail-closed deployment review and the source facts are known.
 It requires every non-external component to name an owner in `tag` and belong
 to exactly one `region`; the document must contain both `region` and

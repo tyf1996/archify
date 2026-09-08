@@ -257,7 +257,7 @@ const RAW_RECIPES = [
       en: { descriptionPrompt: 'Use Archify architecture mode for this embedded runtime: [describe the sensor, RTOS task, shared buffer, Linux service, cores, and watchdog recovery]. Inspect only bounded target evidence before authoring, keep Linux and RTOS execution domains distinct, and mark unknown ownership, priority, cache, or timing facts instead of inventing them.' },
       zh: { descriptionPrompt: '用 Archify 架构模式描述这个嵌入式运行时：[描述传感器、RTOS 任务、共享缓冲、Linux 服务、处理器核和看门狗恢复]。编图前只检查有界的目标证据，保持 Linux 与 RTOS 执行域分开；未知的归属、优先级、缓存或时序事实要标明而不是编造。' },
     },
-    signals: [['embedded runtime', 16], ['linux rtos', 15], ['sensor controltask shared buffer', 18], ['watchdog control', 12], ['cross-core runtime', 14], ['domain map', 10], ['异构运行时', 16], ['linux rtos', 15], ['传感器 控制任务 共享缓冲', 18], ['看门狗恢复控制', 12], ['跨核运行时', 14], ['执行域架构', 10]],
+    signals: [['embedded runtime', 16], ['sensor controltask shared buffer', 18], ['watchdog control', 12], ['cross-core runtime', 14], ['domain map', 10], ['异构运行时', 16], ['传感器 控制任务 共享缓冲', 18], ['看门狗恢复控制', 12], ['跨核运行时', 14], ['执行域架构', 10]],
     en: {
       title: 'Embedded runtime map', question: 'How do Linux and RTOS execution domains exchange sensor data and recovery control?',
       summary: 'A cross-domain architecture for sensor input, an RTOS control task, shared buffering, a Linux service, and watchdog recovery.',
@@ -282,7 +282,7 @@ const RAW_RECIPES = [
       en: { descriptionPrompt: 'Use Archify workflow mode for this bare-metal startup: [paste reset, vector, runtime initialization, board initialization, calibration, main loop, and timeout recovery evidence]. Do not introduce an OS scheduler or task unless the target evidence explicitly contains one.' },
       zh: { descriptionPrompt: '用 Archify 工作流模式描述这个裸机启动：[粘贴 Reset、向量表、运行时初始化、板级初始化、校准、主循环和超时恢复证据]。除非目标证据明确存在，否则不要引入操作系统调度器或任务。' },
     },
-    signals: [['bare metal boot', 18], ['bare-metal reset', 16], ['bare-metal reset calibration', 18], ['reset runtime init board init calibrate', 20], ['vector table main loop', 15], ['safe state timeout', 12], ['startup calibration', 11], ['裸机启动', 18], ['裸机 复位 校准', 18], ['复位 运行时初始化 板级初始化 校准', 20], ['向量表 主循环', 15], ['安全状态超时', 12], ['启动校准', 11]],
+    signals: [['bare metal boot', 18], ['bare metal startup', 18], ['bare-metal reset', 16], ['bare-metal reset calibration', 18], ['reset runtime init board init calibrate', 20], ['vector table main loop', 15], ['safe state timeout', 12], ['startup calibration', 11], ['裸机启动', 18], ['裸机 复位 校准', 18], ['复位 运行时初始化 板级初始化 校准', 20], ['向量表 主循环', 15], ['安全状态超时', 12], ['启动校准', 11]],
     en: {
       title: 'Bare-metal boot', question: 'How does reset reach a calibrated main loop, and where does timeout enter safe state?',
       summary: 'A bounded bare-metal startup workflow from reset and runtime initialization through board setup, calibration, and main loop recovery.',
@@ -307,7 +307,7 @@ const RAW_RECIPES = [
       en: { descriptionPrompt: 'Use Archify sequence mode for this RTOS interrupt handoff: [describe the peripheral, ISR, queue, worker, recovery condition, and relevant port/version]. Keep ISR enqueue/notification separate from worker consumption, and treat the diagram as message order rather than measured time.' },
       zh: { descriptionPrompt: '用 Archify 时序模式描述这个 RTOS 中断交接：[描述外设、ISR、队列、worker、恢复条件和相关 port/版本]。把 ISR 入队或通知与 worker 取数分开，图只表达消息顺序，不表达实测时间。' },
     },
-    signals: [['rtos irq handoff', 18], ['rtos irq queue', 17], ['isr queue worker', 20], ['interrupt to task queue', 15], ['queue full recovery', 13], ['interrupt notification', 11], ['worker consumes data', 11], ['rtos 中断 任务交接', 18], ['中断 队列 worker', 20], ['中断到任务队列', 15], ['队列满恢复', 13], ['中断通知', 11], ['worker 取数', 11]],
+    signals: [['rtos irq handoff', 18], ['rtos irq queue', 17], ['isr queue worker', 20], ['isr worker', 15], ['message order isr worker', 17], ['interrupt to task queue', 15], ['interrupt task interaction', 15], ['queue full recovery', 13], ['interrupt notification', 11], ['worker consumes data', 11], ['rtos 中断 任务交接', 18], ['中断 队列 worker', 20], ['中断到任务队列', 15], ['中断到任务交互顺序', 17], ['队列满恢复', 13], ['中断通知', 11], ['worker 取数', 11]],
     en: {
       title: 'RTOS IRQ handoff', question: 'How does an interrupt notify a worker, and what happens when the queue is full?',
       summary: 'A message-ordered RTOS handoff separating ISR notification/enqueue, worker consumption, and queue-full recovery.',
@@ -332,7 +332,7 @@ const RAW_RECIPES = [
       en: { descriptionPrompt: 'Use Archify dataflow mode for this Linux device path: [describe the peripheral, DMA setup, kernel buffer, user process, output, and overflow evidence]. Separate data movement from completion notification and mark dropped or unknown frames without inventing a zero-copy claim.' },
       zh: { descriptionPrompt: '用 Archify 数据流模式描述这个 Linux 设备通路：[描述外设、DMA 配置、内核缓冲、用户进程、输出和溢出证据]。区分数据搬运与完成通知；丢帧或未知帧要标明，不要编造零拷贝结论。' },
     },
-    signals: [['linux device data path', 18], ['peripheral dma kernel buffer user process', 22], ['dma buffer overflow drop frame', 19], ['linux device dma', 18], ['kernel buffer userspace', 13], ['linux 设备 数据通路', 18], ['外设 dma 内核缓冲 用户进程', 22], ['dma 缓冲 溢出 丢帧', 19], ['linux 设备 dma', 18], ['内核缓冲 用户态', 13]],
+    signals: [['linux device data path', 18], ['peripheral dma kernel buffer user process', 22], ['dma buffer overflow drop frame', 19], ['linux device dma', 18], ['sensor data dma', 17], ['dma kernel buffer', 17], ['kernel buffer user process', 17], ['kernel buffer userspace', 13], ['linux 设备 数据通路', 18], ['外设 dma 内核缓冲 用户进程', 22], ['dma 缓冲 溢出 丢帧', 19], ['linux 设备 dma', 18], ['传感器 数据 dma', 17], ['dma 内核缓冲', 17], ['内核缓冲 用户进程', 17], ['内核缓冲 用户态', 13]],
     en: {
       title: 'Linux device data path', question: 'How does peripheral data move through DMA and kernel buffers to userspace, including drop paths?',
       summary: 'A Linux dataflow separating peripheral movement, DMA, kernel buffering, userspace processing, output, and overflow drops.',
@@ -357,7 +357,7 @@ const RAW_RECIPES = [
       en: { descriptionPrompt: 'Use Archify lifecycle mode for this firmware update object: [describe downloading, verification, trial boot, confirmation, rollback, and recovery evidence]. Keep image identity, boot outcome, and recovery authority distinct; do not invent a terminal state or claim device success without evidence.' },
       zh: { descriptionPrompt: '用 Archify 生命周期模式描述这个固件更新对象：[描述下载、验证、试运行、确认、回滚和恢复证据]。区分镜像身份、启动结果和恢复权限；没有证据时不要编造终态或宣称设备更新成功。' },
     },
-    signals: [['firmware update state', 18], ['download verify trial confirmed rollback recovery', 22], ['ota image rollback', 17], ['image confirmation', 11], ['trial boot recovery', 12], ['固件更新状态', 18], ['下载 验证 试运行 确认 回滚 恢复', 22], ['ota 镜像回滚', 17], ['镜像确认', 11], ['试运行恢复', 12]],
+    signals: [['firmware update state', 18], ['firmware image states', 18], ['download verify trial confirmed rollback recovery', 22], ['ota image rollback', 17], ['trial rollback', 16], ['image confirmation', 11], ['trial boot recovery', 12], ['固件更新状态', 18], ['固件 镜像 状态', 18], ['下载 验证 试运行 确认 回滚 恢复', 22], ['ota 镜像回滚', 17], ['试运行 回滚', 16], ['镜像确认', 11], ['试运行恢复', 12]],
     en: {
       title: 'Firmware update state', question: 'Which firmware state is active, what verifies it, and how does rollback recover the device?',
       summary: 'A lifecycle for downloading, verifying, trial boot, confirmation, rollback, and recovery without inventing terminal semantics.',
@@ -409,7 +409,73 @@ export function startPromptsFor(recipe, lang = 'en') {
 }
 
 function normalized(value) {
-  return String(value || '').normalize('NFKC').toLowerCase().replace(/[\s_]+/g, ' ').trim();
+  return String(value || '')
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, ' ')
+    .trim()
+    .replace(/\s+/g, ' ');
+}
+
+const RECIPE_INTENTS = Object.freeze({
+  'embedded-runtime-map': 'architecture',
+  'bare-metal-boot': 'workflow',
+  'rtos-irq-handoff': 'sequence',
+  'linux-device-data-path': 'dataflow',
+  'firmware-update-state': 'lifecycle',
+});
+
+const EMBEDDED_SPECIFICITY = Object.freeze({
+  'embedded-runtime-map': [['sensor', 'controltask', 'shared buffer'], ['传感器', '控制任务', '共享缓冲']],
+  'bare-metal-boot': [['bare metal', 'reset', 'calibration'], ['裸机', '复位', '校准'], ['裸机', '主循环']],
+  'rtos-irq-handoff': [['rtos', 'interrupt', 'worker'], ['rtos', 'isr', 'worker'], ['rtos', '中断', '任务'], ['rtos', '中断', 'worker']],
+  'linux-device-data-path': [['linux', 'dma', 'kernel buffer'], ['linux', 'dma', 'user process'], ['linux', 'dma', '内核缓冲'], ['linux', 'dma', '用户进程']],
+  'firmware-update-state': [['firmware', 'image', 'state'], ['firmware', 'download', 'rollback'], ['固件', '镜像', '状态'], ['固件', '下载', '回滚']],
+});
+
+const INTENT_RULES = Object.freeze([
+  {
+    intent: 'sequence',
+    phrases: ['call chain', 'message order', 'interaction order', 'request order', 'who calls whom', '调用链', '消息顺序', '交互顺序', '调用顺序'],
+    combinations: [['interrupt', 'task'], ['irq', 'worker'], ['isr', 'worker'], ['中断', '任务'], ['中断', 'worker'], ['调用', '顺序']],
+  },
+  {
+    intent: 'dataflow',
+    phrases: ['data lineage', 'data flow', 'data path', 'data movement', 'moves through', '数据血缘', '数据流', '数据通路', '数据移动', '数据如何经'],
+    combinations: [['data', 'dma'], ['data', 'buffer'], ['数据', 'dma'], ['数据', '缓冲']],
+  },
+  {
+    intent: 'lifecycle',
+    phrases: ['state machine', 'states of', 'state transition', 'object lifecycle', 'firmware state', '状态机', '状态流转', '生命周期', '固件状态', '状态'],
+    combinations: [['image', 'state'], ['固件', '状态'], ['状态', '回滚']],
+  },
+  {
+    intent: 'workflow',
+    phrases: ['startup', 'boot flow', 'boot process', 'initialization flow', 'release workflow', 'deployment workflow', 'incident runbook', 'workflow', '启动流程', '启动过程', '初始化流程', '发布流程', '部署流程', '事故处置'],
+    combinations: [['reset', 'calibration'], ['reset', 'main loop'], ['复位', '校准'], ['复位', '主循环'], ['runbook', 'recovery']],
+  },
+  {
+    intent: 'architecture',
+    phrases: ['architecture', 'topology', 'component architecture', 'system structure', 'runtime map', '架构', '拓扑', '组件架构', '系统结构', '运行时总览'],
+    combinations: [['components', 'connected'], ['组件', '连接']],
+  },
+]);
+
+function includesAll(text, terms) {
+  return terms.every((term) => text.includes(normalized(term)));
+}
+
+function detectIntent(query) {
+  const text = normalized(query);
+  for (const rule of INTENT_RULES) {
+    if (rule.phrases.some((phrase) => text.includes(normalized(phrase)))) return rule.intent;
+    if (rule.combinations.some((terms) => includesAll(text, terms))) return rule.intent;
+  }
+  return null;
+}
+
+function specificEmbeddedMatch(recipe, text) {
+  return (EMBEDDED_SPECIFICITY[recipe.id] || []).some((terms) => includesAll(text, terms));
 }
 
 function localized(recipe, lang) {
@@ -431,7 +497,8 @@ export function listScenarioRecipes(lang = 'en') {
 function scoreRecipe(recipe, query) {
   const text = normalized(query);
   if (!text) return { recipe, score: 0, matched: [] };
-  if (text === recipe.id || text === recipe.id.replace(/-/g, ' ')) {
+  const normalizedId = normalized(recipe.id);
+  if (text === normalizedId) {
     return { recipe, score: 100, matched: [recipe.id] };
   }
   let score = 0;
@@ -442,6 +509,13 @@ function scoreRecipe(recipe, query) {
       matched.push(signal);
     }
   }
+
+  const intent = detectIntent(text);
+  if (intent) {
+    const recipeIntent = RECIPE_INTENTS[recipe.id] || recipe.type;
+    score += recipeIntent === intent ? 40 : -18;
+  }
+  if (specificEmbeddedMatch(recipe, text)) score += 30;
   return { recipe, score, matched };
 }
 

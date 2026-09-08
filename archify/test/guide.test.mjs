@@ -89,6 +89,28 @@ test('guide: representative scenarios map to specialized recipes', () => {
   }
 });
 
+test('guide: intent wins over embedded background words', () => {
+  const cases = [
+    ['Show the API request call chain between Linux RTOS components.', 'sequence'],
+    ['展示 Linux RTOS 系统的状态机', 'lifecycle'],
+    ['展示 Linux RTOS 系统的数据血缘', 'dataflow'],
+    ['展示 Linux RTOS 系统的发布流程', 'workflow'],
+    ['展示 Linux 设备 DMA 的组件架构', 'architecture'],
+    ['展示 Linux 设备 DMA 的调用链', 'sequence'],
+    ['Show the incident runbook for queue full recovery.', 'workflow'],
+    ['展示 RTOS 中断到任务的交互顺序', 'sequence'],
+    ['Show the message order between the ISR and worker task in an RTOS.', 'sequence'],
+    ['展示 Linux 外设数据如何经 DMA 和内核缓冲送到用户进程', 'dataflow'],
+    ['Show how Linux sensor data moves through DMA and kernel buffers into a user process.', 'dataflow'],
+    ['展示裸机从复位、板级初始化和校准到主循环的启动流程', 'workflow'],
+    ['Show bare-metal startup from reset through runtime initialization, board setup, calibration and the main loop.', 'workflow'],
+    ['Show the states of a Linux firmware image as it downloads, verifies, runs a trial and rolls back.', 'lifecycle'],
+  ];
+  for (const [query, expectedType] of cases) {
+    assert.equal(recommendScenario(query).recommendation.type, expectedType, query);
+  }
+});
+
 test('guide: exact ids win and unknown questions fall back honestly', () => {
   const exact = recommendScenario('incident-runbook');
   assert.equal(exact.recommendation.id, 'incident-runbook');
@@ -102,9 +124,11 @@ test('guide: exact ids win and unknown questions fall back honestly', () => {
     assert.equal(recommendScenario(query).recommendation.id, expected, query);
   }
 
-  const contextOnly = recommendScenario('Linux');
-  assert.equal(contextOnly.confidence, 'low');
-  assert.notEqual(contextOnly.recommendation.type, undefined);
+  for (const context of ['Linux', 'RTOS', 'FreeRTOS', 'MCU', 'embedded']) {
+    const contextOnly = recommendScenario(context);
+    assert.equal(contextOnly.confidence, 'low', context);
+    assert.notEqual(contextOnly.recommendation.type, undefined, context);
+  }
 
   const unknown = recommendScenario('make it delightful');
   assert.equal(unknown.recommendation.id, 'system-overview');

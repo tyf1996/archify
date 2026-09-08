@@ -109,7 +109,7 @@ Use the delivery contract for the canonical browser-evidence coverage, artifact 
 
 ## 7. Embedded systems
 
-For embedded Linux, an RTOS, bare metal, or a mixed runtime, start with the question and bound target-firmware evidence before authoring. Read only the relevant [embedded domain reference](../archify/references/embedded/README.md) and ecosystem reference; do not infer behavior from an OS name alone.
+For embedded Linux, an RTOS, bare metal, or a mixed runtime, start with the question and bound target-firmware evidence before authoring. Inspect the target repository read-only and write only the diagram or its evidence/delivery materials. Missing build artifacts stay unknown; do not default to building, downloading an SDK, launching a simulator, or accessing/writing a device. Any extra action needs separate authorization. Read only the relevant [embedded domain reference](../archify/references/embedded/README.md) and ecosystem reference; do not infer behavior from an OS name alone.
 
 Use `architecture` for runtime ownership and cross-domain structure, `workflow` for reset/init or update actions, `sequence` for IRQ-to-task or API order, `dataflow` for DMA/buffer movement, and `lifecycle` for device or firmware states. Mixed systems combine domain references while keeping Linux, RTOS, and bare-metal execution domains distinct.
 

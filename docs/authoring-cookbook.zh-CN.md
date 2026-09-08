@@ -109,7 +109,7 @@ node bin/archify.mjs visual-check web-app.html --json
 
 ## 7. 嵌入式系统
 
-遇到嵌入式 Linux、RTOS、裸机或混合运行时，先按问题限定目标固件证据，再开始编图。只读取相关的[嵌入式领域参考](../archify/references/embedded/README.md)和生态参考；不要从操作系统名称推断图种或运行行为。
+遇到嵌入式 Linux、RTOS、裸机或混合运行时，先按问题限定目标固件证据，再开始编图。目标仓库只读，只写图表或其证据／交付材料。缺少构建产物时保留未知；不要默认构建、下载 SDK、启动仿真器或访问／写入设备，额外动作需要独立授权。只读取相关的[嵌入式领域参考](../archify/references/embedded/README.md)和生态参考；不要从操作系统名称推断图种或运行行为。
 
 运行时归属和跨域结构使用 `architecture`，复位／初始化或更新动作使用 `workflow`，IRQ 到任务或 API 交互顺序使用 `sequence`，DMA／缓冲移动使用 `dataflow`，设备或固件状态使用 `lifecycle`。混合系统组合读取多个领域参考，同时保持 Linux、RTOS 和裸机执行域分开。
 
