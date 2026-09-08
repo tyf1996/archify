@@ -25,7 +25,7 @@
     { "id": "recovery", "type": "software", "label": "Recovery handler", "sublabel": "full-queue handling", "execution_domain": "rtos-control", "execution_context": "rtos-task" }
   ],
   "segments": [
-    { "from": 176, "to": 245, "label": "Non-blocking enqueue attempt" },
+    { "from": 200, "to": 245, "label": "Non-blocking enqueue attempt" },
     { "from": 260, "to": 315, "label": "Rejected branch (mutually exclusive)" },
     { "from": 335, "to": 430, "label": "Accepted branch (worker later scheduled)" }
   ],

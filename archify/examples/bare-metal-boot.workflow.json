@@ -9,6 +9,7 @@
     "locale": "en",
     "quality_profile": "showcase",
     "engineering_profile": "embedded-runtime",
+    "viewBox": [1229, 560],
     "views": [
       { "id": "main-path", "label": "Boot to main loop", "focus": ["reset", "runtimeInit", "boardInit", "calibrate", "mainLoop"], "note": "Initialization and calibration remain explicit before the foreground loop." },
       { "id": "recovery-path", "label": "Board-init timeout", "focus": ["boardInit", "safeState"], "note": "A timeout moves the fixture to a safe state; it does not assert a duration." },
