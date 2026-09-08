@@ -487,6 +487,37 @@ async function commandCompare(args) {
   const basePath = path.resolve(baseInput);
   const headPath = path.resolve(headInput);
   const receiptTarget = options.receipt || compareReceiptPath(path.resolve(requestedOutput || 'architecture-delta.html'));
+  let baseBuffer;
+  let headBuffer;
+  let base;
+  let head;
+  try {
+    baseBuffer = fs.readFileSync(basePath);
+    base = JSON.parse(baseBuffer.toString('utf8'));
+  } catch (error) {
+    reportCompareFailure({ json: options.json, stage: 'input', error: `Could not read base input: ${error.message}`, code: 'delta/base-input', details: { side: 'base', reason: error.message } });
+    return;
+  }
+  try {
+    headBuffer = fs.readFileSync(headPath);
+    head = JSON.parse(headBuffer.toString('utf8'));
+  } catch (error) {
+    reportCompareFailure({ json: options.json, stage: 'input', error: `Could not read head input: ${error.message}`, code: 'delta/head-input', details: { side: 'head', reason: error.message } });
+    return;
+  }
+
+  try {
+    assertArchitectureEmbeddedCompareSupported(base, 'base');
+    assertArchitectureEmbeddedCompareSupported(head, 'head');
+  } catch (error) {
+    if (!(error instanceof ArchitectureDeltaError)) throw error;
+    reportCompareFailure({ json: options.json, stage: 'compare', error: error.message, code: error.code, details: error.details });
+    return;
+  }
+
+  // Resolve output aliases only after read-only input parsing and unsupported
+  // embedded-fact checks. Resolution probes directory semantics with temporary
+  // files, so an unsupported compare must not reach it.
   let outputPath;
   try {
     ({ outputPath } = resolveOutputPath({
@@ -532,33 +563,6 @@ async function commandCompare(args) {
         supportedFixes: outputDiagnostic?.supportedFixes || ['choose a safe receipt path and retry'],
       },
     });
-    return;
-  }
-  let baseBuffer;
-  let headBuffer;
-  let base;
-  let head;
-  try {
-    baseBuffer = fs.readFileSync(basePath);
-    base = JSON.parse(baseBuffer.toString('utf8'));
-  } catch (error) {
-    reportCompareFailure({ json: options.json, stage: 'input', error: `Could not read base input: ${error.message}`, code: 'delta/base-input', details: { side: 'base', reason: error.message } });
-    return;
-  }
-  try {
-    headBuffer = fs.readFileSync(headPath);
-    head = JSON.parse(headBuffer.toString('utf8'));
-  } catch (error) {
-    reportCompareFailure({ json: options.json, stage: 'input', error: `Could not read head input: ${error.message}`, code: 'delta/head-input', details: { side: 'head', reason: error.message } });
-    return;
-  }
-
-  try {
-    assertArchitectureEmbeddedCompareSupported(base, 'base');
-    assertArchitectureEmbeddedCompareSupported(head, 'head');
-  } catch (error) {
-    if (!(error instanceof ArchitectureDeltaError)) throw error;
-    reportCompareFailure({ json: options.json, stage: 'compare', error: error.message, code: error.code, details: error.details });
     return;
   }
 

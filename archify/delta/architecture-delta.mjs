@@ -61,7 +61,8 @@ function unsupportedEmbeddedComparePaths(diagram) {
   if (Array.isArray(diagram?.execution_domains) && diagram.execution_domains.length > 0) {
     paths.push('/execution_domains');
   }
-  for (const [index, component] of (diagram?.components || []).entries()) {
+  const components = Array.isArray(diagram?.components) ? diagram.components : [];
+  for (const [index, component] of components.entries()) {
     if (component?.execution_domain !== undefined) paths.push(`/components/${index}/execution_domain`);
   }
   if (Array.isArray(diagram?.semanticChecks?.requiredRelations)) {
@@ -301,8 +302,22 @@ export function compareArchitecture(base, head, evidence = {}) {
   }));
   const connections = compareEntities(baseConnections, headConnections, 'connection', CONNECTION_FIELDS, (id, before, after) => ({
     id,
-    ...(before ? { base: { from: before.from, to: before.to, label: before.label || '' } } : {}),
-    ...(after ? { head: { from: after.from, to: after.to, label: after.label || '' } } : {}),
+    ...(before ? {
+      base: {
+        from: before.from,
+        to: before.to,
+        label: before.label || '',
+        mechanism: before.mechanism || '',
+      },
+    } : {}),
+    ...(after ? {
+      head: {
+        from: after.from,
+        to: after.to,
+        label: after.label || '',
+        mechanism: after.mechanism || '',
+      },
+    } : {}),
   }));
   const boundaries = compareEntities(baseBoundaries, headBoundaries, 'boundary', BOUNDARY_FIELDS, (_key, before, after) => ({
     key: `${(after || before).kind}:${(after || before).label}`,
@@ -701,23 +716,23 @@ function expectedReviewTargetSignature(row) {
     }
   } else {
     const forms = row.status === 'added'
-      ? [{ state: 'added', marker: 'added', label: row.head?.label }]
+      ? [{ state: 'added', marker: 'added', label: row.head?.label, mechanism: row.head?.mechanism }]
       : row.status === 'removed'
-        ? [{ state: 'removed', marker: 'removed', label: row.base?.label }]
+        ? [{ state: 'removed', marker: 'removed', label: row.base?.label, mechanism: row.base?.mechanism }]
         : row.classifications.includes('topology')
           ? [
-              { state: 'removed', marker: 'removed', label: row.base?.label },
-              { state: 'changed', marker: 'added', label: row.head?.label },
+              { state: 'removed', marker: 'removed', label: row.base?.label, mechanism: row.base?.mechanism },
+              { state: 'changed', marker: 'added', label: row.head?.label, mechanism: row.head?.mechanism },
             ]
           : row.classifications.includes('geometry')
             ? [
-                { state: 'moved-from', marker: 'moved-from', label: row.base?.label },
-                { state: row.status, marker: row.status, label: row.head?.label },
+                { state: 'moved-from', marker: 'moved-from', label: row.base?.label, mechanism: row.base?.mechanism },
+                { state: row.status, marker: row.status, label: row.head?.label, mechanism: row.head?.mechanism },
               ]
-            : [{ state: 'changed', marker: 'changed', label: row.head?.label }];
+            : [{ state: 'changed', marker: 'changed', label: row.head?.label, mechanism: row.head?.mechanism }];
     for (const form of forms) {
       descriptors.push(`path:${form.state}:${classifications}`, `text:${form.marker}:`);
-      if (form.label) descriptors.push(`g:${form.state}:${classifications}`);
+      if (form.label || form.mechanism) descriptors.push(`g:${form.state}:${classifications}`);
     }
   }
   return descriptors.sort(codepointOrder).join('|');
