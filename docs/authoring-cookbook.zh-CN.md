@@ -106,3 +106,13 @@ node bin/archify.mjs visual-check web-app.html --json
 这份回执只证明有限范围内的运行时表现，并不批准视觉质量。仍需单独检查 HTML 或生成的截图。记录补充性的手工浏览器工作时必须遵循[交付契约](../archify/references/delivery-contract.md)；不受约束的目检只影响视觉复核结论。
 
 自动化浏览器证据的规范覆盖、成品绑定、视觉复核状态和交付回执字段请参阅交付契约。编图不变量和有上限的修复循环请参阅 [Skill 契约](../archify/SKILL.md)。
+
+## 7. 嵌入式系统
+
+遇到嵌入式 Linux、RTOS、裸机或混合运行时，先按问题限定目标固件证据，再开始编图。只读取相关的[嵌入式领域参考](../archify/references/embedded/README.md)和生态参考；不要从操作系统名称推断图种或运行行为。
+
+运行时归属和跨域结构使用 `architecture`，复位／初始化或更新动作使用 `workflow`，IRQ 到任务或 API 交互顺序使用 `sequence`，DMA／缓冲移动使用 `dataflow`，设备或固件状态使用 `lifecycle`。混合系统组合读取多个领域参考，同时保持 Linux、RTOS 和裸机执行域分开。
+
+获批的嵌入式接口可在 [Schema 说明](../archify/schemas/README.md)中查阅，其中包括可选执行域、执行上下文、关系机制、必需关系和 `embedded-runtime` 画像。只使用已安装 Schema 接受的字段。画像默认关闭；关键未知事实应保持可见，或阻止启用画像。带执行域或必需关系的 Architecture 比较有明确的 `delta/embedded-context-unsupported` 限制；其他图种不会扩大 `--repo-root` 证据范围。
+
+Buildroot 和 Yocto 是构建生态，不自动代表设备上的运行时服务。源码／配置事实、构建产物、运行观测、预算和推断要分开记录。镜像生成、驱动编译、设备描述或唤醒事件本身都不能证明已部署、已绑定、已就绪或已经执行。

@@ -12,6 +12,14 @@ Read both the mode schema and `schemas/common.schema.json`. The mode schemas use
 
 Do not invent fields. Use the nearest matching example for structure, then author fresh IDs, wording, facts, and layout.
 
+## Embedded authoring contract
+
+For embedded Linux, RTOS, bare-metal, and mixed-runtime questions, bound target-firmware evidence before artifact-first authoring: record the target version, board, build/configuration, startup or execution boundary, and relevant artifact. Read the smallest matching reference under `references/embedded/`; do not treat an OS name as a diagram type.
+
+The approved embedded shape is additive and optional: top-level execution domains use `id`, `label`, and `environment` (`linux|rtos|bare-metal`), with optional runtime/version/processor/cores; supported node collections may name `execution_domain` and `execution_context`; relationship collections may name `mechanism`; and `semanticChecks.requiredRelations` may state exact directed requirements. Use only fields accepted by the current Schema. The nine added component roles are `software`, `process`, `thread`, `task`, `isr`, `hardware`, `buffer`, `memory`, and `bus`; they do not replace existing types or create an `unknown` node.
+
+`embedded-runtime` is opt-in. It requires evidence-backed execution ownership for applicable process/thread/task/isr nodes and explicit mechanisms for declared cross-domain or cross-context relationships; it does not prove scheduling, interrupt legality, DMA correctness, cache coherence, or real-time bounds. Keep unknown facts visible and leave the profile unset when required facts are unavailable. Architecture comparisons containing non-empty embedded execution domains, execution-domain references, or required relations return structured `delta/embedded-context-unsupported` before output; never delete those facts to obtain a comparison.
+
 ## Workflow layout contracts
 
 Use schema v2 for new workflows and keep schema v1 when an existing source must

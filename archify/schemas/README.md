@@ -130,6 +130,16 @@ they must not reinterpret authored IR or turn a previously valid profile-less
 v1 file into a new hard layout failure. Breaking IR changes require a new
 version; additive, backwards-compatible fields do not.
 
+## Embedded interface (A1)
+
+The embedded interface is optional and additive. It does not create a diagram type and does not change the five existing renderer types. The nine added component roles are `software`, `process`, `thread`, `task`, `isr`, `hardware`, `buffer`, `memory`, and `bus`; `hardware` covers processors, peripherals, and DMA actors, while DMA movement remains a relationship mechanism rather than a new node role.
+
+A document may declare `execution_domains` with unique `id`/`label` and `environment` (`linux`, `rtos`, or `bare-metal`), plus optional runtime, version, processor, and cores. Supported node collections may reference a domain with `execution_domain` and name an `execution_context`; relationship collections may name one approved `mechanism`. `semanticChecks.requiredRelations` is an optional exact directed relationship contract. These fields are validated when present and do not infer missing entities or OS behavior.
+
+The `embedded-runtime` engineering profile is opt-in and distinct from `deployment-ownership`. It raises completeness requirements for evidence-backed execution ownership and cross-domain mechanisms; it does not prove scheduling, API legality, DMA, cache coherence, or real-time bounds. Unknown required facts remain blocking under the profile; unrelated unknowns remain visible without fabricated nodes.
+
+Architecture delta has an explicit limit: comparisons containing non-empty `execution_domains`, component execution-domain references, or `semanticChecks.requiredRelations` return structured non-zero `delta/embedded-context-unsupported` before canonicalization, rendering, or output. The comparison must preserve the previous trusted artifact and must not discard embedded facts or recommend deleting them. Single-diagram render/validate/deliver support the full approved interface. Other diagram types do not expand `--repo-root` evidence scope.
+
 ## Shared definitions (common.schema.json)
 
 The five diagram schemas reference `common.schema.json#/$defs/...`:

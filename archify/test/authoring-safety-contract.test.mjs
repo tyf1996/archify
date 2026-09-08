@@ -24,6 +24,19 @@ test('semantic relationship labels are preserved and deletion is not a geometry 
   }
 });
 
+test('embedded authoring stays question-first, bounded, and profile-safe', () => {
+  assert.match(skill, /target-firmware evidence/);
+  assert.match(skill, /Artifact first/);
+  assert.match(skill, /OS name alone never chooses the diagram type/);
+  assert.match(skill, /embedded-runtime/);
+  assert.match(skill, /delta\/embedded-context-unsupported/);
+  assert.match(authoringContract, /execution_context/);
+  assert.match(authoringContract, /execution domain/);
+  assert.match(authoringContract, /`embedded-runtime` is opt-in/);
+  assert.match(schemaReadme, /nine added component roles/);
+  assert.match(schemaReadme, /Other diagram types do not expand `--repo-root`/);
+});
+
 test('schema policy documents the workflow v1/v2 compatibility boundary', () => {
   assert.match(schemaReadme, /Workflow[^\n]*schema versions? 1 and 2/i);
   assert.match(schemaReadme, /other four[^\n]*schema_version[^\n]*1/i);

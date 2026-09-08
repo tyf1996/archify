@@ -16,17 +16,18 @@ Create a self-contained, interactive HTML diagram from a small typed JSON specif
 
 Use this bounded path for ordinary generation. Do not read the optional Viewer Runtime reference unless the user asks about those features.
 
-1. Choose `architecture`, `workflow`, `sequence`, `dataflow`, or `lifecycle` from the question.
-2. Read one matching schema in `schemas/`, `schemas/common.schema.json`, and one matching JSON example in `examples/`. Read only those files. Fresh authorship means new stable IDs, domain wording, and layout; use the example for field shape, not facts. New workflow sources use `schema_version: 2` and its readable layout contract; keep `schema_version: 1` only when preserving an existing workflow's fixed geometry. When real product identity matters, query `node bin/archify.mjs brands "<name>" --json`; read `references/brand-marks.md` only for an unknown brand with a user-provided URL.
-3. Artifact first: the next tool action must write the candidate. Write the candidate before inspecting renderer internals. Do not plan exact coordinates in prose. Start with one clear main path, short side branches, sparse labels, and at most 12 primary nodes. Set `meta.quality_profile` to `"showcase"` unless the user explicitly requests a dense `standard` map. Start with automatic routes and labels. Do not add `via`, `channelX`, `channelY`, or `labelAt` before a diagnostic calls for one; apply at most one diagnosed geometry control per repair.
-4. Validate after every candidate edit and immediately before handoff:
+1. If the request concerns embedded Linux, an RTOS, bare metal, or a mixed runtime, first bound the target-firmware evidence (version, board, build/config, startup, execution boundaries, and relevant artifacts), then read only the needed `references/embedded/` domain or ecosystem reference. This evidence pass may inspect the target repository before authoring; it does not authorize broad SDK scans or implementation-internal inspection.
+2. Choose `architecture`, `workflow`, `sequence`, `dataflow`, or `lifecycle` from the question; an OS name alone never chooses the diagram type.
+3. Read one matching schema in `schemas/`, `schemas/common.schema.json`, and one matching JSON example in `examples/`. Read only those files. Fresh authorship means new stable IDs, domain wording, and layout; use the example for field shape, not facts. New workflow sources use `schema_version: 2` and its readable layout contract; keep `schema_version: 1` only when preserving an existing workflow's fixed geometry. When real product identity matters, query `node bin/archify.mjs brands "<name>" --json`; read `references/brand-marks.md` only for an unknown brand with a user-provided URL.
+4. Artifact first: the next tool action must write the candidate. Write the candidate before inspecting renderer internals. Do not plan exact coordinates in prose. Start with one clear main path, short side branches, sparse labels, and at most 12 primary nodes. Set `meta.quality_profile` to `"showcase"` unless the user explicitly requests a dense `standard` map. Start with automatic routes and labels. Do not add `via`, `channelX`, `channelY`, or `labelAt` before a diagnostic calls for one; apply at most one diagnosed geometry control per repair.
+5. Validate after every candidate edit and immediately before handoff:
 
    ```bash
    node bin/archify.mjs validate <type> <candidate.json> --quality showcase --json
    ```
 
    A receipt with only 4 artifact checks is basic validation, never showcase acceptance. A showcase pass must report all 9 artifact checks with 0 composition errors and 0 warnings. If the candidate omits or misspells the exact `meta.quality_profile` field, fix it before geometry. For a workflow v2 geometry diagnosis, run `node bin/archify.mjs validate workflow <candidate.json> --layout-json` and use the stable compiler receipt; solver internals are not authoring controls. A passing final validation freezes the candidate: never edit it afterward.
-5. For a delivered HTML, `deliver` is the final acceptance command:
+6. For a delivered HTML, `deliver` is the final acceptance command:
 
    ```bash
    node bin/archify.mjs deliver <type> <candidate.json> <output.html> --quality showcase --json
@@ -62,7 +63,13 @@ Lifecycle note: phase columns `0..4` occupy the main rail; event/terminal column
 | `dataflow` | Pipelines, ETL/ELT, lineage, governance, consumers |
 | `lifecycle` | State/status transitions, retries, waiting and terminal states |
 
-When ambiguous, run `node bin/archify.mjs guide "<scenario>" --json`. Scenario proof examples are structural references, not facts to copy.
+For embedded questions, route by the question first: runtime ownership and cross-domain structure → `architecture`; reset/init or update actions → `workflow`; IRQ-to-task or API interaction order → `sequence`; DMA/buffer movement → `dataflow`; device or firmware status → `lifecycle`. Mixed systems combine domain references and keep each execution domain explicit.
+
+When ambiguous, run `node bin/archify.mjs guide "<scenario>" --json`. A single Linux, RTOS, FreeRTOS, MCU, or embedded keyword is low-confidence context, not a diagram choice. Scenario proof examples are structural references, not facts to copy.
+
+## Embedded interface notes
+
+When the target uses A1 embedded semantics, use only the existing approved shape: optional execution domains, execution context, mechanism, required relations, and `embedded-runtime` profile as documented in [`references/authoring-contract.md`](references/authoring-contract.md) and [`schemas/README.md`](schemas/README.md). Do not invent fields, force unknown entities, or enable the profile by default. The nine added semantic types are `software`, `process`, `thread`, `task`, `isr`, `hardware`, `buffer`, `memory`, and `bus`; use them only when target evidence supports the role. Architecture comparison involving non-empty execution-domain or required-relation context returns `delta/embedded-context-unsupported`; do not drop those facts to make a comparison pass. Other diagram types do not expand `--repo-root` repository evidence.
 
 ## Mermaid input
 

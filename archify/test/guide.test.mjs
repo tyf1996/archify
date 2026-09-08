@@ -8,15 +8,15 @@ import {
   recommendScenario,
 } from '../recipes/scenarios.mjs';
 
-test('guide: exposes 11 unique recipes across every diagram type', () => {
-  assert.equal(SCENARIO_RECIPES.length, 11);
-  assert.equal(new Set(SCENARIO_RECIPES.map((recipe) => recipe.id)).size, 11);
+test('guide: exposes 16 unique recipes across every diagram type', () => {
+  assert.equal(SCENARIO_RECIPES.length, 16);
+  assert.equal(new Set(SCENARIO_RECIPES.map((recipe) => recipe.id)).size, 16);
   assert.deepEqual(
     Object.fromEntries(['architecture', 'workflow', 'sequence', 'dataflow', 'lifecycle'].map((type) => [
       type,
       SCENARIO_RECIPES.filter((recipe) => recipe.type === type).length,
     ])),
-    { architecture: 2, workflow: 3, sequence: 2, dataflow: 2, lifecycle: 2 },
+    { architecture: 3, workflow: 4, sequence: 3, dataflow: 3, lifecycle: 3 },
   );
 });
 
@@ -36,6 +36,32 @@ test('guide: every recipe has complete English and Chinese decision copy', () =>
   }
 });
 
+test('guide: embedded recipes keep the approved IDs, static presentation, and start prompts', () => {
+  assert.deepEqual(
+    SCENARIO_RECIPES.slice(0, 11).map((recipe) => recipe.id),
+    ['system-overview', 'deployment-ownership', 'agent-tool-call', 'delivery-workflow', 'incident-runbook', 'api-request', 'async-roundtrip', 'data-lineage', 'event-stream', 'object-lifecycle', 'deployment-lifecycle'],
+  );
+  assert.deepEqual(
+    SCENARIO_RECIPES.slice(-5).map((recipe) => [recipe.id, recipe.type, recipe.proof]),
+    [
+      ['embedded-runtime-map', 'architecture', 'embedded-runtime-map'],
+      ['bare-metal-boot', 'workflow', 'bare-metal-boot'],
+      ['rtos-irq-handoff', 'sequence', 'rtos-irq-handoff'],
+      ['linux-device-data-path', 'dataflow', 'linux-device-data-path'],
+      ['firmware-update-state', 'lifecycle', 'firmware-update-state'],
+    ],
+  );
+  for (const recipe of SCENARIO_RECIPES.slice(-5)) {
+    assert.equal(recipe.presentation.preset, 'classic', recipe.id);
+    assert.equal(recipe.presentation.motion, 'static', recipe.id);
+    assert.equal(recipe.presentation.views, 'recommended', recipe.id);
+    for (const lang of ['en', 'zh']) {
+      assert.ok(recipe.start?.[lang]?.descriptionPrompt, `${recipe.id}.${lang}.start`);
+      assert.match(recipe[lang].prompt, /Archify/);
+    }
+  }
+});
+
 test('guide: language detection and localization are deterministic', () => {
   assert.equal(detectGuideLanguage('show an API request'), 'en');
   assert.equal(detectGuideLanguage('展示 API 请求'), 'zh');
@@ -51,6 +77,11 @@ test('guide: representative scenarios map to specialized recipes', () => {
     ['梳理 ETL 数仓 PII 数据血缘', 'data-lineage'],
     ['deployment lifecycle approval rollback state', 'deployment-lifecycle'],
     ['agent tool call approval gate MCP', 'agent-tool-call'],
+    ['embedded runtime Linux RTOS sensor controlTask shared buffer watchdog', 'embedded-runtime-map'],
+    ['裸机启动 reset runtime init board init calibrate main loop', 'bare-metal-boot'],
+    ['RTOS ISR queue worker queue full recovery', 'rtos-irq-handoff'],
+    ['Linux device peripheral DMA kernel buffer user process drop frame', 'linux-device-data-path'],
+    ['固件更新 下载 验证 试运行 确认 回滚 恢复', 'firmware-update-state'],
   ];
 
   for (const [query, expected] of cases) {
@@ -63,6 +94,18 @@ test('guide: exact ids win and unknown questions fall back honestly', () => {
   assert.equal(exact.recommendation.id, 'incident-runbook');
   assert.equal(exact.confidence, 'high');
 
+  for (const [query, expected] of [
+    ['展示 Linux 设备 DMA 数据通路', 'linux-device-data-path'],
+    ['Show bare-metal reset and calibration workflow', 'bare-metal-boot'],
+    ['RTOS IRQ queue worker sequence', 'rtos-irq-handoff'],
+  ]) {
+    assert.equal(recommendScenario(query).recommendation.id, expected, query);
+  }
+
+  const contextOnly = recommendScenario('Linux');
+  assert.equal(contextOnly.confidence, 'low');
+  assert.notEqual(contextOnly.recommendation.type, undefined);
+
   const unknown = recommendScenario('make it delightful');
   assert.equal(unknown.recommendation.id, 'system-overview');
   assert.equal(unknown.confidence, 'low');
@@ -71,7 +114,7 @@ test('guide: exact ids win and unknown questions fall back honestly', () => {
 
 test('guide: public data includes both languages and weighted signals', () => {
   const data = publicGuideData();
-  assert.equal(data.length, 11);
+  assert.equal(data.length, 16);
   for (const recipe of data) {
     assert.ok(recipe.en.title);
     assert.ok(recipe.zh.title);

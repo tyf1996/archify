@@ -106,3 +106,13 @@ node bin/archify.mjs visual-check web-app.html --json
 This receipt measures bounded runtime behavior; it does not approve perceptual polish. Inspect the HTML or generated screenshots separately. Follow the [delivery contract](../archify/references/delivery-contract.md) when recording supplementary manual browser work; an unconstrained glance supports only perceptual review.
 
 Use the delivery contract for the canonical browser-evidence coverage, artifact binding, visual-review status, and handoff fields. The [Skill contract](../archify/SKILL.md) explains the authoring invariants and the bounded repair loop.
+
+## 7. Embedded systems
+
+For embedded Linux, an RTOS, bare metal, or a mixed runtime, start with the question and bound target-firmware evidence before authoring. Read only the relevant [embedded domain reference](../archify/references/embedded/README.md) and ecosystem reference; do not infer behavior from an OS name alone.
+
+Use `architecture` for runtime ownership and cross-domain structure, `workflow` for reset/init or update actions, `sequence` for IRQ-to-task or API order, `dataflow` for DMA/buffer movement, and `lifecycle` for device or firmware states. Mixed systems combine domain references while keeping Linux, RTOS, and bare-metal execution domains distinct.
+
+When the approved embedded interface is available, optional execution domains, execution contexts, relationship mechanisms, required relations, and the `embedded-runtime` profile are documented in the [Schema reference](../archify/schemas/README.md). Use only fields accepted by the installed Schema. The profile is opt-in; unknown required facts must remain visible or block the profile. Architecture comparisons with embedded context or required relations have the explicit `delta/embedded-context-unsupported` limit. Other diagram types do not expand `--repo-root` evidence.
+
+Buildroot and Yocto are build ecosystems, not automatic runtime services. Keep source/configuration facts, build outputs, runtime observations, budgets, and inferred claims separate. A generated image, compiled driver, device description, or wake event does not by itself prove deployment, binding, readiness, or execution.
