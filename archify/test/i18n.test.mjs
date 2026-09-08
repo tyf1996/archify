@@ -83,6 +83,25 @@ function authoredExample(type, locale) {
   return { document, authored };
 }
 
+function passportContextDocument(locale) {
+  return {
+    schema_version: 1,
+    diagram_type: 'architecture',
+    meta: { title: `Passport context ${locale}`, locale, viewBox: [520, 320], legend: { mode: 'hidden' } },
+    execution_domains: [{ id: 'linux', label: 'DomainNeedle', environment: 'linux' }],
+    components: [{
+      id: 'kernel',
+      type: 'software',
+      label: 'Kernel service',
+      pos: [120, 100],
+      size: [180, 76],
+      execution_domain: 'linux',
+      execution_context: 'linux-kernel',
+    }],
+    connections: [],
+  };
+}
+
 function run(type, document, command = 'render') {
   const id = sequence++;
   const input = path.join(tmp, `${id}-${type}.json`);
@@ -216,6 +235,19 @@ test('omitted locale preserves non-English authored content and the English View
   }
 });
 
+test('embedded execution-context messages are transported in English and Chinese Viewer catalogs', () => {
+  const expected = { en: 'Linux kernel', 'zh-CN': 'Linux 内核态' };
+  for (const [locale, label] of Object.entries(expected)) {
+    const result = run('architecture', passportContextDocument(locale));
+    assert.equal(result.status, 0, `${locale}: ${result.stderr || result.stdout}`);
+    const payload = result.html.match(/<script id="archify-i18n-data" type="application\/json">([^<]+)<\/script>/)?.[1];
+    assert.ok(payload, locale);
+    const catalog = JSON.parse(payload);
+    assert.equal(catalog.messages['embedded.context.linux-kernel'], label, locale);
+    assert.match(result.html, new RegExp(`DomainNeedle · ${label}`));
+  }
+});
+
 test('unsupported locale values fail schema validation in every mode', () => {
   for (const locale of ['fr', 'zh-HK']) {
     for (const type of Object.keys(EXAMPLES)) {
@@ -227,6 +259,27 @@ test('unsupported locale values fail schema validation in every mode', () => {
       assert.equal(payload.ok, false);
       assert.ok(payload.diagnostics.some((entry) => entry.subject?.path === '/meta/locale'), `${type}: ${locale}`);
     }
+  }
+});
+
+test('real Chrome renders embedded Passport contexts in English and Chinese without raw keys', {
+  skip: chromePath ? false : 'Set ARCHIFY_CHROME to run the real browser localization regression.',
+}, async () => {
+  const browser = new ChromeVisualBrowser(chromePath);
+  try {
+    for (const [locale, expected] of Object.entries({ en: 'Linux kernel', 'zh-CN': 'Linux 内核态' })) {
+      const result = run('architecture', passportContextDocument(locale));
+      assert.equal(result.status, 0, `${locale}: ${result.stderr || result.stdout}`);
+      const sessionId = await loadArtifact(browser, result.output);
+      const context = await evaluate(browser, sessionId, `(function () {
+        Archify.focus.set('kernel', { toggle: false });
+        return document.getElementById('focus-context').textContent.trim();
+      })()`);
+      assert.match(context, new RegExp(expected));
+      assert.doesNotMatch(context, /embedded\.context\./);
+    }
+  } finally {
+    await browser.close();
   }
 });
 

@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { esc, renderDefinitions, renderSemanticSigil, textUnits } from '../shared/utils.mjs';
 import { animateAttr, focusEdgeAttrs, focusNodeAttrs, focusNodeTitle, loadDiagramWithBrandMarks, writeDiagram, svgAccessibleText, svgRootAttrs } from '../shared/cli.mjs';
 import { throwDiagnosticProblems } from '../shared/diagnostics.mjs';
-import { resolveLegend, renderLegend as renderResolvedLegend } from '../shared/legend.mjs';
+import { legendFootprint, resolveLegend, renderLegend as renderResolvedLegend } from '../shared/legend.mjs';
 import { availableNodeTextWidth, fittedNodeFontSize, minimumNodeTextWidth } from '../shared/text-fit.mjs';
 import { brandLabelFitWidth, brandMarkFor, brandMetadataFor, brandTopRailProblem, renderBrandMark } from '../shared/brand-marks.mjs';
 import { translateMessage as i18nText } from '../shared/i18n.mjs';
@@ -85,6 +85,23 @@ const textClass = {
   external: 't-muted'
 };
 
+const LEGEND_CATALOG = [
+  'start',
+  'active',
+  'waiting',
+  'decision',
+  'success',
+  'failure',
+  'neutral',
+  'external',
+].map((kind) => ({ kind, label: i18nText(lifecycle.meta.locale, `legend.lifecycle.${kind}`) }));
+const lifecycleLegendEntries = resolveLegend(
+  lifecycle.meta?.legend,
+  LEGEND_CATALOG,
+  new Set(asArray(lifecycle.states).map((state) => state.type)),
+);
+const lifecycleLegendFootprint = legendFootprint(lifecycleLegendEntries, { width: viewBox[0] - 80 });
+
 function legendY() {
   return viewBox[1] - 36;
 }
@@ -93,7 +110,10 @@ function legendY() {
 // legend's lower baseline. Moving legend chrome must not admit new state
 // geometry into the reserved outcome/legend band.
 function lifecycleAreaBottom() {
-  return viewBox[1] - 122;
+  const legacyBottom = viewBox[1] - 122;
+  return executionDomainLayout
+    ? Math.min(legacyBottom, executionDomainLayout.topY - 8)
+    : legacyBottom;
 }
 
 // Lane semantics are fixed: lane id "main" maps to the top phase band, lane id
@@ -130,6 +150,47 @@ function measureState(state) {
 
 const states = new Map(asArray(lifecycle.states).map((state) => [state.id, measureState(state)]));
 
+function packExecutionDomainRows(domains, width) {
+  const itemGap = 18;
+  const measured = domains.map((domain) => {
+    const label = `${domain.label} · ${domain.environment}`;
+    return { domain, label, width: Math.ceil(textUnits(label) * 8 * 0.62) };
+  });
+  const rows = [[]];
+  let cursor = 0;
+  for (const entry of measured) {
+    const row = rows.at(-1);
+    const required = (row.length ? itemGap : 0) + entry.width;
+    if (row.length && cursor + required > width) {
+      rows.push([entry]);
+      cursor = entry.width;
+    } else {
+      row.push(entry);
+      cursor += required;
+    }
+  }
+  return { measured, rows, itemGap };
+}
+
+const executionDomainLayout = (() => {
+  const domains = asArray(lifecycle.execution_domains);
+  if (!domains.length) return null;
+  const x = 72;
+  const width = viewBox[0] - x * 2;
+  const packed = packExecutionDomainRows(domains, width);
+  const rowGap = 14;
+  const height = 20 + packed.rows.length * rowGap;
+  const legendTopY = legendY() - lifecycleLegendFootprint.extraHeight - 30;
+  return {
+    ...packed,
+    x,
+    width,
+    rowGap,
+    height,
+    topY: legendTopY - 10 - height,
+  };
+})();
+
 function transitionDisplayLabel(transition) {
   return relationDisplayLabel(transition, lifecycle.meta.locale);
 }
@@ -151,6 +212,18 @@ function validateLifecycle() {
   // outcome/legend reserve even though measured legend rows now sit lower.
   if (lifecycleAreaBottom() + 4 < 448) {
     problems.push(`viewBox height ${viewBox[1]} is too short for the fixed band layout — set meta.viewBox[1] to at least 566.`);
+  }
+
+  if (executionDomainLayout) {
+    const tooWide = executionDomainLayout.measured.find((entry) => entry.width > executionDomainLayout.width);
+    if (tooWide) {
+      const requiredWidth = Math.ceil(tooWide.width + executionDomainLayout.x * 2);
+      problems.push(`Execution domain "${tooWide.domain.id}" label and environment need ${tooWide.width}px, but the document caption provides ${executionDomainLayout.width}px — shorten the domain label or increase meta.viewBox[0] to at least ${requiredWidth}.`);
+    }
+    if (executionDomainLayout.topY < 448) {
+      const requiredHeight = Math.ceil(viewBox[1] + 448 - executionDomainLayout.topY);
+      problems.push(`Execution-domain caption needs ${executionDomainLayout.rows.length} rows above the legend — increase meta.viewBox[1] to at least ${requiredHeight}.`);
+    }
   }
 
   const laneIds = new Set(asArray(lifecycle.lanes).map((lane) => lane.id));
@@ -495,22 +568,26 @@ function renderTransitionLabel(transition, index) {
         </g>`;
 }
 
-const LEGEND_CATALOG = [
-  'start',
-  'active',
-  'waiting',
-  'decision',
-  'success',
-  'failure',
-  'neutral',
-  'external',
-].map((kind) => ({ kind, label: i18nText(lifecycle.meta.locale, `legend.lifecycle.${kind}`) }));
+function renderExecutionDomains() {
+  if (!executionDomainLayout) return '';
+  const caption = i18nText(lifecycle.meta.locale, 'embedded.domains.caption');
+  const rows = executionDomainLayout.rows.map((row, rowIndex) => {
+    let x = executionDomainLayout.x;
+    return row.map((entry) => {
+      const rendered = `        <text data-execution-domain-id="${esc(entry.domain.id)}" data-execution-domain-environment="${esc(entry.domain.environment)}" x="${x}" y="${executionDomainLayout.topY + 26 + rowIndex * executionDomainLayout.rowGap}" class="t-dim" font-size="8">${esc(entry.label)}</text>`;
+      x += entry.width + executionDomainLayout.itemGap;
+      return rendered;
+    }).join('\n');
+  }).join('\n');
+  return `        <g data-detail="context" data-execution-domains="">
+          <text x="${executionDomainLayout.x}" y="${executionDomainLayout.topY + 10}" class="t-muted" font-size="8" font-weight="700">${esc(caption)}</text>
+${rows}
+        </g>`;
+}
 
 function renderLegend() {
-  const presentKinds = new Set([...states.values()].map((state) => state.type));
-  const entries = resolveLegend(lifecycle.meta?.legend, LEGEND_CATALOG, presentKinds);
   return renderResolvedLegend({
-    entries,
+    entries: lifecycleLegendEntries,
     locale: lifecycle.meta.locale,
     layout: {
       x: 40,
@@ -555,6 +632,9 @@ ${[...states.values()].map(renderState).join('\n\n')}
 
         <!-- Transition labels -->
 ${asArray(lifecycle.transitions).map(renderTransitionLabel).join('\n')}
+
+        <!-- Execution domains -->
+${renderExecutionDomains()}
 
         <!-- Legend -->
 ${renderLegend()}

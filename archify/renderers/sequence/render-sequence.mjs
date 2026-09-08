@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { esc, renderDefinitions, renderSemanticSigil, textUnits } from '../shared/utils.mjs';
 import { animateAttr, focusEdgeAttrs, focusNodeAttrs, focusNodeTitle, loadDiagramWithBrandMarks, writeDiagram, svgAccessibleText, svgRootAttrs } from '../shared/cli.mjs';
 import { throwDiagnosticProblems } from '../shared/diagnostics.mjs';
-import { resolveLegend, renderLegend as renderResolvedLegend } from '../shared/legend.mjs';
+import { legendFootprint, resolveLegend, renderLegend as renderResolvedLegend } from '../shared/legend.mjs';
 import { componentFill, arrowClassMap, rectsOverlap, cleanFlowProblems, cleanCrossingProblems, cleanAmbiguousCorridorProblems, cleanBorderRunProblems, cleanRouteRhythmProblems, cleanLabelRouteClearanceProblems, routePointsValue, asArray, isFinitePoint } from '../shared/geometry.mjs';
 import { availableNodeTextWidth, fittedNodeFontSize, minimumNodeTextWidth } from '../shared/text-fit.mjs';
 import { brandLabelFitWidth, brandMetadataFor, brandTopRailProblem, renderBrandMark } from '../shared/brand-marks.mjs';
@@ -30,6 +30,36 @@ const { diagram: sequence, template, outPath } = await loadDiagramWithBrandMarks
 });
 
 const viewBox = sequence.meta?.viewBox || [920, 760];
+const LEGACY_LEGEND_CATALOG = [
+  { kind: 'emphasis', className: 'a-emphasis', marker: 'arrowhead-emphasis', strokeWidth: 1.8 },
+  { kind: 'return', className: 'a-default', marker: 'arrowhead', dash: '3,5' },
+  { kind: 'security', className: 'a-security', marker: 'arrowhead-security' },
+  { kind: 'dashed', className: 'a-dashed', marker: 'arrowhead-dashed' },
+  { kind: 'default', className: 'a-default', marker: 'arrowhead' },
+].map((entry) => ({
+  ...entry,
+  interactive: false,
+  swatchWidth: 34,
+  swatchGap: 9,
+  label: i18nText(sequence.meta.locale, `legend.sequence.${entry.kind}`),
+}));
+const sequenceHasEmbeddedTypes = hasEmbeddedComponentTypes(sequence.participants);
+const LEGEND_CATALOG = [
+  ...LEGACY_LEGEND_CATALOG,
+  ...(sequenceHasEmbeddedTypes
+    ? EMBEDDED_COMPONENT_TYPES.map((kind) => ({ kind, nodeKind: true, label: i18nText(sequence.meta.locale, `viewer.kind.${kind}`) }))
+    : []),
+];
+const presentLegendKinds = new Set(asArray(sequence.messages).map((message) => message.variant || 'default'));
+for (const participant of asArray(sequence.participants)) {
+  if (EMBEDDED_COMPONENT_TYPES.includes(participant.type)) presentLegendKinds.add(participant.type);
+}
+const sequenceLegendEntries = resolveLegend(sequence.meta?.legend, LEGEND_CATALOG, presentLegendKinds);
+const sequenceLegendFootprint = legendFootprint(sequenceLegendEntries, { width: viewBox[0] - 80 });
+const sequenceLegendExtraHeight = sequenceHasEmbeddedTypes
+  ? sequenceLegendFootprint.extraHeight
+  : 0;
+
 // The timeline scales with viewBox height: a taller viewBox gains message room,
 // a shorter one shrinks the readable band (validated below) instead of clipping.
 // `column_fit: "spread"` widens the lanes with the viewBox instead of keeping
@@ -54,7 +84,7 @@ const layout = {
   participantW,
   participantH,
   lifelineTop: 72 + participantH + 16,
-  lifelineBottom: viewBox[1] - 65,
+  lifelineBottom: viewBox[1] - 65 - sequenceLegendExtraHeight,
   legendY: viewBox[1] - 54,
   leftX: columnFit === 'spread' ? sideMargin + participantW / 2 : sideMargin,
   colGap,
@@ -418,41 +448,18 @@ ${messageLabel(message, start, end)}${note}
         </g>`;
 }
 
-const LEGACY_LEGEND_CATALOG = [
-  { kind: 'emphasis', className: 'a-emphasis', marker: 'arrowhead-emphasis', strokeWidth: 1.8 },
-  { kind: 'return', className: 'a-default', marker: 'arrowhead', dash: '3,5' },
-  { kind: 'security', className: 'a-security', marker: 'arrowhead-security' },
-  { kind: 'dashed', className: 'a-dashed', marker: 'arrowhead-dashed' },
-  { kind: 'default', className: 'a-default', marker: 'arrowhead' },
-].map((entry) => ({
-  ...entry,
-  interactive: false,
-  swatchWidth: 34,
-  swatchGap: 9,
-  label: i18nText(sequence.meta.locale, `legend.sequence.${entry.kind}`),
-}));
-const LEGEND_CATALOG = [
-  ...LEGACY_LEGEND_CATALOG,
-  ...(hasEmbeddedComponentTypes(sequence.participants)
-    ? EMBEDDED_COMPONENT_TYPES.map((kind) => ({ kind, nodeKind: true, label: i18nText(sequence.meta.locale, `viewer.kind.${kind}`) }))
-    : []),
-];
-
 function renderLegend() {
-  const presentKinds = new Set(asArray(sequence.messages).map((message) => message.variant || 'default'));
-  for (const participant of participants.values()) {
-    if (EMBEDDED_COMPONENT_TYPES.includes(participant.type)) presentKinds.add(participant.type);
-  }
-  const entries = resolveLegend(sequence.meta?.legend, LEGEND_CATALOG, presentKinds);
   return renderResolvedLegend({
-    entries,
+    entries: sequenceLegendEntries,
     locale: sequence.meta.locale,
     layout: {
       x: 40,
       baselineY: layout.legendY,
       width: viewBox[0] - 80,
-      minTitleY: layout.legendY - 30,
-      unfit: sequence.meta?.legend === undefined ? 'hide' : 'error',
+      minTitleY: layout.legendY - 30 - sequenceLegendExtraHeight,
+      unfit: sequenceHasEmbeddedTypes
+        ? 'error'
+        : (sequence.meta?.legend === undefined ? 'hide' : 'error'),
       diagramType: 'sequence',
     },
     renderSwatch: (entry) => entry.nodeKind

@@ -3,7 +3,7 @@ import { fileURLToPath } from 'node:url';
 import { esc, renderDefinitions, renderSemanticSigil, textUnits } from '../shared/utils.mjs';
 import { animateAttr, focusEdgeAttrs, focusNodeAttrs, focusNodeTitle, loadDiagramWithBrandMarks, writeDiagram, svgAccessibleText, svgRootAttrs } from '../shared/cli.mjs';
 import { throwDiagnosticProblems } from '../shared/diagnostics.mjs';
-import { resolveLegend, renderLegend as renderResolvedLegend } from '../shared/legend.mjs';
+import { legendFootprint, resolveLegend, renderLegend as renderResolvedLegend } from '../shared/legend.mjs';
 import { availableNodeTextWidth, fittedNodeFontSize, minimumNodeTextWidth } from '../shared/text-fit.mjs';
 import { brandLabelFitWidth, brandMetadataFor, brandTopRailProblem, renderBrandMark } from '../shared/brand-marks.mjs';
 import { translateMessage as i18nText } from '../shared/i18n.mjs';
@@ -11,7 +11,7 @@ import {
   EMBEDDED_COMPONENT_TYPES,
   embeddedNodeDetail,
   embeddedNodeMetadata,
-  embeddedNodeMinimumHeight,
+  embeddedNodeHeight,
   hasEmbeddedComponentTypes,
   relationDisplayLabel,
   relationMechanismLabel,
@@ -58,10 +58,37 @@ const { diagram: dataflow, template, outPath } = await loadDiagramWithBrandMarks
 });
 
 const viewBox = dataflow.meta?.viewBox || [940, 720];
+const LEGACY_LEGEND_CATALOG = [
+  { kind: 'emphasis', className: 'a-emphasis', marker: 'arrowhead-emphasis', strokeWidth: 1.8, swatchWidth: 34, swatchGap: 9, interactive: false },
+  { kind: 'security', className: 'a-security', marker: 'arrowhead-security', swatchWidth: 34, swatchGap: 9, interactive: false },
+  { kind: 'dashed', className: 'a-dashed', marker: 'arrowhead-dashed', swatchWidth: 34, swatchGap: 9, interactive: false },
+  { kind: 'database', nodeKind: true },
+  { kind: 'default', className: 'a-default', marker: 'arrowhead', swatchWidth: 34, swatchGap: 9, interactive: false },
+].map((entry) => ({
+  ...entry,
+  label: i18nText(dataflow.meta.locale, `legend.dataflow.${entry.kind}`),
+}));
+const dataflowHasEmbeddedTypes = hasEmbeddedComponentTypes(dataflow.nodes);
+const LEGEND_CATALOG = [
+  ...LEGACY_LEGEND_CATALOG,
+  ...(dataflowHasEmbeddedTypes
+    ? EMBEDDED_COMPONENT_TYPES.map((kind) => ({ kind, nodeKind: true, label: i18nText(dataflow.meta.locale, `viewer.kind.${kind}`) }))
+    : []),
+];
+const presentLegendKinds = new Set(asArray(dataflow.flows).map((flow) => flow.variant || 'default'));
+for (const node of asArray(dataflow.nodes)) {
+  if (node.type === 'database' || EMBEDDED_COMPONENT_TYPES.includes(node.type)) presentLegendKinds.add(node.type);
+}
+const dataflowLegendEntries = resolveLegend(dataflow.meta?.legend, LEGEND_CATALOG, presentLegendKinds);
+const dataflowLegendFootprint = legendFootprint(dataflowLegendEntries, { width: viewBox[0] - 80 });
+const dataflowLegendExtraHeight = dataflowHasEmbeddedTypes
+  ? dataflowLegendFootprint.extraHeight
+  : 0;
+
 const layout = {
   stageY: 46,
   stageH: 36,
-  stageBottomPad: 74,
+  stageBottomPad: 74 + dataflowLegendExtraHeight,
   leftX: 100,
   colGap: 215,
   stageW: 168,
@@ -104,7 +131,8 @@ const compositionFrames = asArray(dataflow.stages).map(stageFrame);
 
 function measureNode(node) {
   const width = node.width || layout.nodeW;
-  const height = Math.max(node.height || layout.nodeH, embeddedNodeMinimumHeight(node, layout.nodeH));
+  const authoredHeight = node.height || layout.nodeH;
+  const height = embeddedNodeHeight(node, authoredHeight, layout.nodeH);
   const cx = stageX(node.stage);
   const y = layout.rowYs[node.row] + (node.yOffset || 0);
   return {
@@ -439,38 +467,18 @@ function renderFlowLabel(flow, index) {
         </g>`;
 }
 
-const LEGACY_LEGEND_CATALOG = [
-  { kind: 'emphasis', className: 'a-emphasis', marker: 'arrowhead-emphasis', strokeWidth: 1.8, swatchWidth: 34, swatchGap: 9, interactive: false },
-  { kind: 'security', className: 'a-security', marker: 'arrowhead-security', swatchWidth: 34, swatchGap: 9, interactive: false },
-  { kind: 'dashed', className: 'a-dashed', marker: 'arrowhead-dashed', swatchWidth: 34, swatchGap: 9, interactive: false },
-  { kind: 'database', nodeKind: true },
-  { kind: 'default', className: 'a-default', marker: 'arrowhead', swatchWidth: 34, swatchGap: 9, interactive: false },
-].map((entry) => ({
-  ...entry,
-  label: i18nText(dataflow.meta.locale, `legend.dataflow.${entry.kind}`),
-}));
-const LEGEND_CATALOG = [
-  ...LEGACY_LEGEND_CATALOG,
-  ...(hasEmbeddedComponentTypes(dataflow.nodes)
-    ? EMBEDDED_COMPONENT_TYPES.map((kind) => ({ kind, nodeKind: true, label: i18nText(dataflow.meta.locale, `viewer.kind.${kind}`) }))
-    : []),
-];
-
 function renderLegend() {
-  const presentKinds = new Set(asArray(dataflow.flows).map((flow) => flow.variant || 'default'));
-  for (const node of nodes.values()) {
-    if (node.type === 'database' || EMBEDDED_COMPONENT_TYPES.includes(node.type)) presentKinds.add(node.type);
-  }
-  const entries = resolveLegend(dataflow.meta?.legend, LEGEND_CATALOG, presentKinds);
   return renderResolvedLegend({
-    entries,
+    entries: dataflowLegendEntries,
     locale: dataflow.meta.locale,
     layout: {
       x: 40,
       baselineY: viewBox[1] - 36,
       width: viewBox[0] - 80,
-      minTitleY: viewBox[1] - 66,
-      unfit: dataflow.meta?.legend === undefined ? 'hide' : 'error',
+      minTitleY: viewBox[1] - 66 - dataflowLegendExtraHeight,
+      unfit: dataflowHasEmbeddedTypes
+        ? 'error'
+        : (dataflow.meta?.legend === undefined ? 'hide' : 'error'),
       diagramType: 'dataflow',
     },
     renderSwatch: (entry) => entry.nodeKind

@@ -20,7 +20,7 @@ import {
   EMBEDDED_COMPONENT_TYPES,
   embeddedNodeDetail,
   embeddedNodeMetadata,
-  embeddedNodeMinimumHeight,
+  embeddedNodeHeight,
   hasEmbeddedComponentTypes,
   relationDisplayLabel,
   relationMechanismLabel,
@@ -127,7 +127,7 @@ function nodeWidthContributor(node) {
 function authoredNodeHeight(node) {
   const ordinaryHeight = node?.tag ? 68 : 52;
   const authoredHeight = Number.isFinite(node?.height) ? node.height : ordinaryHeight;
-  return Math.max(authoredHeight, embeddedNodeMinimumHeight(node, ordinaryHeight));
+  return embeddedNodeHeight(node, authoredHeight, ordinaryHeight);
 }
 
 function workflowLabelWidth(label) {
@@ -874,7 +874,8 @@ const packedLegendFootprint = legendFootprint(workflowLegendEntries, {
   ...legendFootprintOptions,
   width: legendPackingWidth,
 });
-const legendExtraHeight = workflow.schema_version === 2
+const workflowHasEmbeddedTypes = hasEmbeddedComponentTypes(workflow.nodes);
+const legendExtraHeight = workflow.schema_version === 2 || workflowHasEmbeddedTypes
   ? packedLegendFootprint.extraHeight
   : 0;
 
@@ -943,7 +944,9 @@ function workflowLegendLayout(obstacles = []) {
     itemGap: 7,
     minTitleY: lastLaneBottom() + 8,
     obstacles,
-    unfit: workflow.meta?.legend === undefined ? 'hide' : 'error',
+    unfit: workflowHasEmbeddedTypes
+      ? 'error'
+      : (workflow.meta?.legend === undefined ? 'hide' : 'error'),
     diagramType: 'workflow',
   };
 }
@@ -967,7 +970,8 @@ function workflowLegendRects() {
 function measureNode(node) {
   const width = authoredNodeWidth(node);
   const ordinaryHeight = node.tag ? 68 : layout.nodeH;
-  const height = Math.max(node.height || ordinaryHeight, embeddedNodeMinimumHeight(node, ordinaryHeight));
+  const authoredHeight = node.height || ordinaryHeight;
+  const height = embeddedNodeHeight(node, authoredHeight, ordinaryHeight);
   const cx = layout.colXs[node.col];
   const groupHeaderH = laneGroupHeaderH(node.lane);
   const contentH = laneHeight(node.lane) - layout.laneTitleH

@@ -30,6 +30,20 @@ function attrs(source, name) {
   return [...source.matchAll(new RegExp(`${name}="([^"]+)"`, 'g'))].map((match) => match[1]);
 }
 
+function nodeRect(source, id) {
+  const escapedId = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  const match = source.match(new RegExp(
+    `<g[^>]*data-node-id="${escapedId}"[^>]*>[\\s\\S]*?<rect x="([^"]+)" y="([^"]+)" width="([^"]+)" height="([^"]+)"`,
+  ));
+  assert.ok(match, `missing rendered node ${id}`);
+  return {
+    x: Number(match[1]),
+    y: Number(match[2]),
+    width: Number(match[3]),
+    height: Number(match[4]),
+  };
+}
+
 function architectureTypes() {
   const types = ['software', 'process', 'thread', 'task', 'isr', 'hardware', 'buffer', 'memory', 'bus'];
   return {
@@ -67,6 +81,66 @@ test('pure legacy documents keep the old all legend catalog', () => {
   assert.deepEqual(attrs(svg(render('architecture', document)), 'data-legend-semantic-kind'), [
     'frontend', 'backend', 'database', 'cloud', 'security', 'messagebus', 'external',
   ]);
+});
+
+test('legacy authored compact heights remain exact in Architecture, Dataflow, and Workflow v1/v2', () => {
+  const cases = [
+    ['architecture', {
+      schema_version: 1,
+      diagram_type: 'architecture',
+      meta: { title: 'Compact architecture', viewBox: [500, 300] },
+      components: [{ id: 'compact', type: 'backend', label: 'API', pos: [100, 100], size: [120, 40] }],
+      connections: [],
+    }],
+    ['dataflow', {
+      schema_version: 1,
+      diagram_type: 'dataflow',
+      meta: { title: 'Compact dataflow', viewBox: [500, 360] },
+      stages: [{ label: 'Input' }, { label: 'Output' }],
+      nodes: [
+        { id: 'compact', type: 'backend', label: 'API', stage: 0, row: 0, height: 40 },
+        { id: 'peer', type: 'backend', label: 'Peer', stage: 1, row: 0, height: 40 },
+      ],
+      flows: [],
+    }],
+    ['workflow', {
+      schema_version: 1,
+      diagram_type: 'workflow',
+      meta: { title: 'Compact workflow v1' },
+      lanes: [{ id: 'main', label: 'Main' }],
+      nodes: [{ id: 'compact', type: 'backend', label: 'API', lane: 'main', col: 0, height: 40 }],
+      edges: [],
+    }],
+    ['workflow', {
+      schema_version: 2,
+      diagram_type: 'workflow',
+      meta: { title: 'Compact workflow v2' },
+      lanes: [{ id: 'main', label: 'Main' }],
+      nodes: [{ id: 'compact', type: 'backend', label: 'API', lane: 'main', col: 0, height: 40 }],
+      edges: [],
+    }],
+  ];
+
+  for (const [type, document] of cases) {
+    assert.equal(nodeRect(svg(render(type, document)), 'compact').height, 40, `${type} v${document.schema_version}`);
+  }
+});
+
+test('legacy compact Architecture neighbors retain their authored clearance', () => {
+  const document = {
+    schema_version: 1,
+    diagram_type: 'architecture',
+    meta: { title: 'Compact neighbors', viewBox: [500, 300], legend: { mode: 'hidden' } },
+    components: [
+      { id: 'first', type: 'backend', label: 'A', pos: [100, 100], size: [120, 40] },
+      { id: 'second', type: 'backend', label: 'B', pos: [100, 151], size: [120, 40] },
+    ],
+    connections: [],
+  };
+  const output = svg(render('architecture', document));
+  const first = nodeRect(output, 'first');
+  const second = nodeRect(output, 'second');
+  assert.equal(second.y - (first.y + first.height), 11);
 });
 
 const MECHANISM_CASES = {
@@ -157,6 +231,84 @@ test('execution domain and context remain visible in static SVG and searchable V
   assert.match(output, /data-node-execution-context="rtos-isr"/);
   assert.match(html, /executionDomain/);
   assert.match(html, /executionContext/);
+});
+
+test('Lifecycle renders execution domains as a measured document caption without assigning them to states', () => {
+  const document = structuredClone(MECHANISM_CASES.lifecycle);
+  document.execution_domains[0].label = 'DomainNeedle';
+  const output = svg(render('lifecycle', document));
+  assert.match(output, />Execution domains</);
+  assert.match(output, />DomainNeedle · linux</);
+  assert.match(output, /data-execution-domain-id="linux"/);
+  assert.match(output, /data-execution-domain-environment="linux"/);
+  assert.doesNotMatch(output, /data-node-execution-domain=/);
+
+  const chinese = structuredClone(document);
+  chinese.meta.locale = 'zh-CN';
+  assert.match(svg(render('lifecycle', chinese)), />执行域</);
+
+  delete document.execution_domains;
+  const legacyOutput = svg(render('lifecycle', document));
+  assert.doesNotMatch(legacyOutput, /data-execution-domains|data-execution-domain-id|>Execution domains</);
+
+  const crowded = structuredClone(MECHANISM_CASES.lifecycle);
+  crowded.execution_domains = Array.from({ length: 8 }, (_, index) => ({
+    id: `domain-${index}`,
+    label: `Execution domain ${index}`,
+    environment: index % 2 ? 'rtos' : 'linux',
+  }));
+  assert.throws(() => render('lifecycle', crowded), /Execution-domain caption needs/);
+  crowded.meta.viewBox[1] = 640;
+  assert.match(svg(render('lifecycle', crowded)), /data-execution-domain-id="domain-7"/);
+});
+
+test('embedded implicit legends stay semantic across renderers while hidden remains explicit', () => {
+  const expectedKinds = {
+    architecture: ['process', 'software'],
+    workflow: ['isr', 'task'],
+    sequence: ['hardware', 'isr'],
+    dataflow: ['hardware', 'buffer'],
+  };
+  for (const [type, kinds] of Object.entries(expectedKinds)) {
+    const document = structuredClone(MECHANISM_CASES[type]);
+    const output = svg(render(type, document));
+    for (const kind of kinds) {
+      assert.ok(attrs(output, 'data-legend-semantic-kind').includes(kind), `${type}: ${kind}`);
+    }
+    document.meta.legend = { mode: 'hidden' };
+    assert.deepEqual(attrs(svg(render(type, document)), 'data-legend-semantic-kind'), [], type);
+  }
+});
+
+test('Sequence budgets multi-row embedded legends for implicit and explicit auto modes', () => {
+  const base = {
+    schema_version: 1,
+    diagram_type: 'sequence',
+    meta: { title: 'Multi-row embedded legend', viewBox: [720, 900], column_fit: 'spread' },
+    participants: [
+      { id: 'software', type: 'software', label: 'Software' },
+      { id: 'process', type: 'process', label: 'Process' },
+      { id: 'task', type: 'task', label: 'Task' },
+      { id: 'hardware', type: 'hardware', label: 'Hardware' },
+      { id: 'buffer', type: 'buffer', label: 'Buffer' },
+    ],
+    messages: [
+      { id: 'default', from: 'software', to: 'process', y: 220, label: 'default' },
+      { id: 'emphasis', from: 'process', to: 'task', y: 300, label: 'emphasis', variant: 'emphasis' },
+      { id: 'security', from: 'task', to: 'hardware', y: 380, label: 'security', variant: 'security' },
+      { id: 'return', from: 'hardware', to: 'buffer', y: 460, label: 'return', variant: 'return' },
+    ],
+  };
+  const expected = ['emphasis', 'return', 'security', 'default', 'software', 'process', 'task', 'hardware', 'buffer'];
+  assert.deepEqual(attrs(svg(render('sequence', base)), 'data-legend-semantic-kind'), expected);
+
+  const explicit = structuredClone(base);
+  explicit.meta.legend = { mode: 'auto' };
+  assert.deepEqual(attrs(svg(render('sequence', explicit)), 'data-legend-semantic-kind'), expected);
+
+  const hidden = structuredClone(base);
+  hidden.meta.legend = { mode: 'hidden' };
+  assert.deepEqual(attrs(svg(render('sequence', hidden)), 'data-legend-semantic-kind'), []);
 });
 
 process.on('exit', () => fs.rmSync(tmp, { recursive: true, force: true }));

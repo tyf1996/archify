@@ -13,7 +13,7 @@ import {
   EMBEDDED_COMPONENT_TYPES,
   embeddedNodeDetail,
   embeddedNodeMetadata,
-  embeddedNodeMinimumHeight,
+  embeddedNodeHeight,
   hasEmbeddedComponentTypes,
   relationDisplayLabel,
   relationMechanismLabel,
@@ -108,7 +108,7 @@ const LEGEND_CATALOG = [
 function measureComponent(c) {
   const [x, y] = resolveComponentPos(c, grid);
   const [w, authoredH] = Array.isArray(c.size) ? c.size : [layout.defaultW, layout.defaultH];
-  const h = Math.max(authoredH, embeddedNodeMinimumHeight(c, layout.defaultH));
+  const h = embeddedNodeHeight(c, authoredH, layout.defaultH);
   return { ...c, x, y, width: w, height: h, cx: x + w / 2, cy: y + h / 2 };
 }
 
@@ -1073,7 +1073,9 @@ function renderLegend() {
       width: viewBox[0] - layout.margin * 2,
       minTitleY: contentBottom + 8,
       obstacles: relationshipObstacles,
-      unfit: arch.meta?.legend === undefined ? 'hide' : 'error',
+      unfit: hasEmbeddedComponentTypes(arch.components)
+        ? 'error'
+        : (arch.meta?.legend === undefined ? 'hide' : 'error'),
       diagramType: 'architecture',
     },
     renderSwatch: (entry) => `<rect x="${entry.x}" y="${entry.baseline - 9}" width="16" height="10" rx="2.5" class="${componentFill[entry.kind] || 'c-external'}" stroke-width="1"/>`,

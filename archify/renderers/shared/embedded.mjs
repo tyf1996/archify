@@ -74,10 +74,9 @@ export function hasEmbeddedComponentTypes(items) {
   return asArray(items).some((item) => EMBEDDED_TYPE_SET.has(item?.type));
 }
 
-export function embeddedNodeMinimumHeight(node, ordinaryHeight) {
-  return node?.execution_domain || node?.execution_context
-    ? ordinaryHeight + 16
-    : ordinaryHeight;
+export function embeddedNodeHeight(node, authoredHeight, ordinaryHeight) {
+  if (!node?.execution_domain && !node?.execution_context) return authoredHeight;
+  return Math.max(authoredHeight, ordinaryHeight + 16);
 }
 
 export function executionContextLabel(locale, context) {

@@ -95,6 +95,7 @@ const MESSAGE_PAIRS = {
   'embedded.context.boot': ['Boot', '启动上下文'],
   'embedded.context.hardware': ['Hardware', '硬件上下文'],
   'embedded.context.unknown': ['Unknown context', '上下文未知'],
+  'embedded.domains.caption': ['Execution domains', '执行域'],
 
   'embedded.mechanism.call': ['Call', '调用'],
   'embedded.mechanism.system-call': ['System call', '系统调用'],
@@ -617,7 +618,9 @@ export function translateCount(locale, key, count, values = {}) {
 
 export function viewerCatalog(locale) {
   const resolved = resolveLocale(locale);
-  return Object.fromEntries(Object.entries(CATALOGS[resolved]).filter(([key]) => key.startsWith('viewer.')));
+  return Object.fromEntries(Object.entries(CATALOGS[resolved]).filter(([key]) => (
+    key.startsWith('viewer.') || key.startsWith('embedded.context.')
+  )));
 }
 
 export function localizeTemplate(template, locale) {
