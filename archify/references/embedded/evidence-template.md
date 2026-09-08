@@ -16,6 +16,7 @@
 | fact_id | diagram_ids | claim | class | reference | status | limits |
 |---|---|---|---|---|---|---|
 | F-001 | node-or-edge-id | 已核对的简短事实 | source/config/observation/design/inference | repo revision、官方 URL 或手册页码 | known/unknown/conflict/not-applicable | 版本、配置、测量条件和未证明范围 |
+| F-002 | node-or-edge-id | 正常 probe 成功后记录绑定完成 | source | Linux v6.6 `drivers/base/dd.c`，固定 commit/行范围 | known | 不适用于手工绑定等特殊路径；不证明用户态接口 ready |
 
 ## 参考写法
 
@@ -23,4 +24,4 @@
 - `status: known` 只表示该条 claim 的证据已找到，不表示整个系统已验证。
 - `status: unknown` 用于缺少版本、配置、运行记录或硬件资料的关键事实；不要用零值或默认行为代替。
 - `status: conflict` 同时保留冲突来源及需要裁定的上下文。
-- `limits` 写清楚“证明到哪里为止”，例如绑定不证明 probe 成功、镜像生成不证明设备已启动。
+- `limits` 写清楚“证明到哪里为止”，例如匹配、开始绑定或临时 driver/sysfs 关联不证明 probe 成功；已核对的正常路径中成功 probe 后才记为绑定完成；绑定/probe 成功仍不证明用户态接口 ready；镜像生成不证明设备已启动。

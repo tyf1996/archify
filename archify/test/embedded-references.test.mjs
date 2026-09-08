@@ -21,7 +21,7 @@ const ecosystemFiles = [
   'yocto.md',
 ];
 
- test('embedded reference tree contains the bounded authoring entrypoints', () => {
+test('embedded reference tree contains the bounded authoring entrypoints', () => {
   for (const file of [
     'README.md',
     'evidence-template.md',
@@ -43,6 +43,27 @@ test('domain references preserve the four environment boundaries', () => {
   const readme = read('README.md');
   assert.match(readme, /Linux、RTOS 和裸机共存时组合读取/);
   assert.match(readme, /不新增图种、IR 字段/);
+});
+
+test('Linux evidence distinguishes binding attempts, completed probe, and userspace readiness', () => {
+  const linux = read('embedded-linux.md');
+  const template = read('evidence-template.md');
+  assert.match(linux, /开始绑定或临时 `driver`／sysfs 关联也不证明 `probe\(\)` 成功/);
+  assert.match(linux, /只有 `probe\(\)` 成功后才记录绑定完成/);
+  assert.match(linux, /手工绑定等特殊入口按目标源码说明/);
+  assert.match(linux, /绑定或 `probe\(\)` 成功仍不单独证明用户态接口 ready/);
+  assert.match(linux, /drivers\/base\/dd\.c/);
+  assert.match(template, /匹配、开始绑定或临时 driver\/sysfs 关联不证明 probe 成功/);
+  assert.match(template, /成功 probe 后才记为绑定完成/);
+  assert.match(template, /绑定\/probe 成功仍不证明用户态接口 ready/);
+});
+
+test('entry guidance distinguishes execution entities from callback mechanisms', () => {
+  const readme = read('README.md');
+  assert.match(readme, /区分执行实体与回调／延后处理机制/);
+  assert.match(readme, /callback 和 work handler 的实际上下文由对应内核、配置及注册／调用链确定/);
+  assert.match(readme, /task、thread 也可能只是同一生态中的命名差异/);
+  assert.match(readme, /不强制拆成不同调度实体/);
 });
 
 test('references state version, configuration, and unknown boundaries', () => {
