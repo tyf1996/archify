@@ -437,26 +437,31 @@ const INTENT_RULES = Object.freeze([
   {
     intent: 'sequence',
     phrases: ['call chain', 'message order', 'interaction order', 'request order', 'who calls whom', '调用链', '消息顺序', '交互顺序', '调用顺序'],
+    fallbackPhrases: [],
     combinations: [['interrupt', 'task'], ['irq', 'worker'], ['isr', 'worker'], ['中断', '任务'], ['中断', 'worker'], ['调用', '顺序']],
   },
   {
     intent: 'dataflow',
-    phrases: ['data lineage', 'data flow', 'data path', 'data movement', 'moves through', '数据血缘', '数据流', '数据通路', '数据移动', '数据如何经'],
-    combinations: [['data', 'dma'], ['data', 'buffer'], ['数据', 'dma'], ['数据', '缓冲']],
+    phrases: ['data lineage', 'data flow', 'data path', 'data movement', 'data pipeline', 'moves through', 'event stream topology', 'kafka topology', 'event stream', '数据血缘', '数据流', '数据通路', '数据移动', '数据管道', '数据如何经', '事件流拓扑', 'kafka 拓扑'],
+    fallbackPhrases: [],
+    combinations: [['topics', 'consumer groups'], ['topic', 'consumer group'], ['主题', '消费者组'], ['data', 'dma'], ['data', 'buffer'], ['数据', 'dma'], ['数据', '缓冲']],
   },
   {
     intent: 'lifecycle',
-    phrases: ['state machine', 'states of', 'state transition', 'object lifecycle', 'firmware state', '状态机', '状态流转', '生命周期', '固件状态', '状态'],
+    phrases: ['state machine', 'states of', 'state transition', 'object lifecycle', 'firmware state', '状态机', '状态流转', '生命周期', '固件状态'],
+    fallbackPhrases: ['state', '状态'],
     combinations: [['image', 'state'], ['固件', '状态'], ['状态', '回滚']],
   },
   {
     intent: 'workflow',
     phrases: ['startup', 'boot flow', 'boot process', 'initialization flow', 'release workflow', 'deployment workflow', 'incident runbook', 'workflow', '启动流程', '启动过程', '初始化流程', '发布流程', '部署流程', '事故处置'],
+    fallbackPhrases: [],
     combinations: [['reset', 'calibration'], ['reset', 'main loop'], ['复位', '校准'], ['复位', '主循环'], ['runbook', 'recovery']],
   },
   {
     intent: 'architecture',
-    phrases: ['architecture', 'topology', 'component architecture', 'system structure', 'runtime map', '架构', '拓扑', '组件架构', '系统结构', '运行时总览'],
+    phrases: ['architecture', 'component architecture', 'system structure', 'runtime map', '架构', '组件架构', '系统结构', '运行时总览'],
+    fallbackPhrases: ['topology', '拓扑'],
     combinations: [['components', 'connected'], ['组件', '连接']],
   },
 ]);
@@ -465,13 +470,29 @@ function includesAll(text, terms) {
   return terms.every((term) => text.includes(normalized(term)));
 }
 
+function bestPhraseMatch(text, phrases, explicit) {
+  return phrases
+    .filter((phrase) => text.includes(normalized(phrase)))
+    .map((phrase) => ({ phrase, length: normalized(phrase).length, explicit }))
+    .sort((left, right) => right.length - left.length)[0];
+}
+
 function detectIntent(query) {
   const text = normalized(query);
-  for (const rule of INTENT_RULES) {
-    if (rule.phrases.some((phrase) => text.includes(normalized(phrase)))) return rule.intent;
-    if (rule.combinations.some((terms) => includesAll(text, terms))) return rule.intent;
-  }
-  return null;
+  const explicit = INTENT_RULES
+    .map((rule) => ({ rule, match: bestPhraseMatch(text, rule.phrases, true) }))
+    .filter((entry) => entry.match)
+    .sort((left, right) => right.match.length - left.match.length)[0];
+  if (explicit) return { intent: explicit.rule.intent, explicit: true };
+
+  const fallback = INTENT_RULES
+    .map((rule) => ({ rule, match: bestPhraseMatch(text, rule.fallbackPhrases, false) }))
+    .filter((entry) => entry.match)
+    .sort((left, right) => right.match.length - left.match.length)[0];
+  if (fallback) return { intent: fallback.rule.intent, explicit: false };
+
+  const combination = INTENT_RULES.find((rule) => rule.combinations.some((terms) => includesAll(text, terms)));
+  return combination ? { intent: combination.intent, explicit: false } : null;
 }
 
 function specificEmbeddedMatch(recipe, text) {
@@ -510,20 +531,22 @@ function scoreRecipe(recipe, query) {
     }
   }
 
-  const intent = detectIntent(text);
-  if (intent) {
-    const recipeIntent = RECIPE_INTENTS[recipe.id] || recipe.type;
-    score += recipeIntent === intent ? 40 : -18;
-  }
   if (specificEmbeddedMatch(recipe, text)) score += 30;
   return { recipe, score, matched };
 }
 
 export function recommendScenario(query, options = {}) {
   const lang = options.lang === 'zh' || options.lang === 'en' ? options.lang : detectGuideLanguage(query);
-  const ranked = SCENARIO_RECIPES.map((recipe) => scoreRecipe(recipe, query))
+  const exactId = SCENARIO_RECIPES.some((recipe) => normalized(query) === normalized(recipe.id));
+  const intent = detectIntent(query);
+  const compatible = !exactId && intent?.explicit
+    ? SCENARIO_RECIPES.filter((recipe) => (RECIPE_INTENTS[recipe.id] || recipe.type) === intent.intent)
+    : SCENARIO_RECIPES;
+  const ranked = compatible.map((recipe) => scoreRecipe(recipe, query))
     .sort((left, right) => right.score - left.score || SCENARIO_RECIPES.indexOf(left.recipe) - SCENARIO_RECIPES.indexOf(right.recipe));
-  const winner = ranked[0].score > 0 ? ranked[0] : { recipe: SCENARIO_RECIPES[0], score: 0, matched: [] };
+  const winner = ranked[0].score > 0 || (intent?.explicit && ranked.length)
+    ? ranked[0]
+    : { recipe: SCENARIO_RECIPES[0], score: 0, matched: [] };
   const confidence = winner.score >= 14 ? 'high' : winner.score >= 7 ? 'medium' : 'low';
   return {
     ok: true,

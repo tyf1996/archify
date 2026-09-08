@@ -111,6 +111,92 @@ test('guide: intent wins over embedded background words', () => {
   }
 });
 
+test('guide: explicit problem phrases constrain candidates before embedded specificity', () => {
+  const cases = [
+    ['展示 Kafka 拓扑', 'dataflow'],
+    ['Show Kafka topology', 'dataflow'],
+    ['Show the event stream topology with topics and consumer groups.', 'dataflow'],
+    ['展示订单状态的数据管道', 'dataflow'],
+    ['展示 API 请求如何查询订单状态', 'sequence'],
+    ['Show an API request with Redis cache miss, including a data buffer.', 'sequence'],
+    ['展示发布流程，检查状态后回滚', 'workflow'],
+    ['展示事故处置工作流，先检查服务状态再回滚', 'workflow'],
+    ['Show the component architecture of an RTOS interrupt handler and worker task.', 'architecture'],
+    ['展示裸机复位和校准模块的组件架构', 'architecture'],
+    ['展示 RTOS 中断和任务的组件架构', 'architecture'],
+    ['展示 RTOS 中断和任务的交互顺序', 'sequence'],
+    ['展示 RTOS 中断和任务的数据血缘', 'dataflow'],
+    ['展示 RTOS 中断和任务的状态机', 'lifecycle'],
+    ['展示 RTOS 中断和任务的发布流程', 'workflow'],
+    ['展示 Linux 设备 DMA 内核缓冲与用户进程的组件架构', 'architecture'],
+    ['展示 Linux 设备 DMA 内核缓冲与用户进程的消息顺序', 'sequence'],
+    ['展示 Linux 设备 DMA 内核缓冲与用户进程的数据血缘', 'dataflow'],
+    ['展示 Linux 设备 DMA 内核缓冲与用户进程的状态机', 'lifecycle'],
+    ['展示 Linux 设备 DMA 内核缓冲与用户进程的发布流程', 'workflow'],
+    ['Show the message order for a Linux device DMA kernel buffer shared with a user process.', 'sequence'],
+  ];
+  for (const [query, expectedType] of cases) {
+    assert.equal(recommendScenario(query).recommendation.type, expectedType, query);
+  }
+});
+
+test('guide: explicit problem phrases preserve existing recipe controls', () => {
+  const cases = [
+    ['Show event stream topics consumer groups and DLQ.', 'event-stream'],
+    ['展示 API 请求和缓存未命中', 'api-request'],
+    ['梳理 ETL 数仓 PII 数据血缘', 'data-lineage'],
+    ['展示对象生命周期状态机终态', 'object-lifecycle'],
+    ['展示发布流程预发上线回滚', 'delivery-workflow'],
+    ['展示事故处置排障缓解升级响应', 'incident-runbook'],
+    ['展示部署拓扑和资源归属', 'deployment-ownership'],
+    ['Show a system overview with core components.', 'system-overview'],
+  ];
+  for (const [query, expectedId] of cases) {
+    assert.equal(recommendScenario(query).recommendation.id, expectedId, query);
+  }
+});
+
+test('guide: K5 preserves the complete R6 routing matrix', () => {
+  const controls = [
+    ['Show a system overview with core components.', 'system-overview'],
+    ['Show cloud deployment topology with regions and ownership.', 'deployment-ownership'],
+    ['agent tool call approval gate MCP', 'agent-tool-call'],
+    ['Show CI/CD build deploy rollback', 'delivery-workflow'],
+    ['Show incident response triage mitigation escalation.', 'incident-runbook'],
+    ['Show an API request with Redis cache miss', 'api-request'],
+    ['Show async roundtrip webhook callback acknowledgement.', 'async-roundtrip'],
+    ['Map ETL warehouse PII data lineage.', 'data-lineage'],
+    ['Show event stream topics consumer groups and DLQ.', 'event-stream'],
+    ['Show object lifecycle state machine terminal state.', 'object-lifecycle'],
+    ['deployment lifecycle approval rollback state', 'deployment-lifecycle'],
+    ['展示系统总览和核心组件', 'system-overview'],
+    ['展示部署拓扑和资源归属', 'deployment-ownership'],
+    ['展示智能体工具调用审批门', 'agent-tool-call'],
+    ['展示发布流程预发上线回滚', 'delivery-workflow'],
+    ['展示事故处置排障缓解升级响应', 'incident-runbook'],
+    ['展示 API 请求和缓存未命中', 'api-request'],
+    ['展示异步回调和消息重试', 'async-roundtrip'],
+    ['梳理 ETL 数仓 PII 数据血缘', 'data-lineage'],
+    ['展示 Kafka topic 消费者组和死信队列', 'event-stream'],
+    ['展示对象生命周期状态机终态', 'object-lifecycle'],
+    ['展示部署生命周期发布状态晋级回滚状态', 'deployment-lifecycle'],
+  ];
+  for (const [query, expectedId] of controls) {
+    assert.equal(recommendScenario(query).recommendation.id, expectedId, query);
+  }
+
+  for (const recipe of SCENARIO_RECIPES) {
+    assert.equal(recommendScenario(recipe.id).recommendation.id, recipe.id, recipe.id);
+    assert.equal(recommendScenario(recipe.id.replaceAll('-', ' ')).recommendation.id, recipe.id, recipe.id + ' spaces');
+  }
+
+  for (const context of ['Linux', 'RTOS', 'FreeRTOS', 'MCU', 'embedded', 'Linux RTOS']) {
+    assert.equal(recommendScenario(context).confidence, 'low', context);
+  }
+  assert.equal(recommendScenario('make it delightful').recommendation.id, 'system-overview');
+  assert.equal(recommendScenario('make it delightful').confidence, 'low');
+});
+
 test('guide: exact ids win and unknown questions fall back honestly', () => {
   const exact = recommendScenario('incident-runbook');
   assert.equal(exact.recommendation.id, 'incident-runbook');

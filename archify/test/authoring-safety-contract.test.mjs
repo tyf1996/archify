@@ -40,7 +40,11 @@ test('embedded authoring stays question-first, bounded, and profile-safe', () =>
   assert.match(authoringContract, /Inspect the target project read-only/);
   assert.match(authoringContract, /Missing build artifacts remain unknown/);
   assert.match(authoringContract, /do not default to building, downloading an SDK, launching a simulator, or accessing\/writing a device/);
+  assert.match(authoringContract, /legacy compatibility types[\s\S]*Embedded interface \(A1\)/);
+  assert.match(authoringContract, /complete role directory and the `embedded-runtime` execution-entity context matrix/);
   assert.match(schemaReadme, /full embedded role directory adds/);
+  assert.match(schemaReadme, /empty `execution_domains` array is rejected by the core validator/);
+  assert.match(schemaReadme, /\| `process` \| `linux-user` \|/);
   assert.match(schemaReadme, /Other diagram types do not expand `--repo-root`/);
   assert.match(schemaReadme, /embedded-runtime.*all five diagram types/s);
   assert.match(schemaReadme, /deployment-ownership.*Architecture-only/s);

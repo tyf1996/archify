@@ -71,9 +71,15 @@ test('embedded interface documentation stays internally consistent', () => {
   const schema = fs.readFileSync(path.join(root, 'schemas', 'README.md'), 'utf8');
   for (const role of ['software', 'process', 'thread', 'task', 'isr', 'hardware', 'buffer', 'memory', 'bus']) {
     const rolePattern = new RegExp('`' + role + '`');
-    assert.match(readme, rolePattern, role);
     assert.match(schema, rolePattern, role);
   }
+  assert.match(readme, /完整角色目录与 `embedded-runtime` 画像执行实体支持表以 \[Schema 说明\]/);
+  assert.match(readme, /\[Schema 说明中的支持表\]/);
+  assert.match(schema, /\| `process` \| `linux-user` \|/);
+  assert.match(schema, /\| `thread` \/ `task` \| `linux-user`, `linux-kernel`, `rtos-task` \|/);
+  assert.match(schema, /\| `isr` \| `linux-irq`, `rtos-isr`, `bare-isr` \|/);
+  assert.match(schema, /`software` is not required to declare an execution context/);
+  assert.match(schema, /empty `execution_domains` array is rejected by the core validator/);
   assert.match(readme, /`embedded-runtime` 可用于五种既有图种/);
   assert.match(readme, /`deployment-ownership` 仅用于 Architecture/);
   assert.match(readme, /execution domain 的 `id` 必须唯一，`label` 只要求非空/);
