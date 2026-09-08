@@ -73,7 +73,7 @@ const MECHANISM_CASES = {
   architecture: {
     schema_version: 1,
     diagram_type: 'architecture',
-    meta: { title: 'Architecture mechanism', viewBox: [680, 380] },
+    meta: { title: 'Architecture mechanism', viewBox: [680, 380], engineering_profile: 'embedded-runtime' },
     execution_domains: [{ id: 'linux', label: 'Linux A-class', environment: 'linux' }],
     components: [
       { id: 'app', type: 'process', label: 'App', execution_domain: 'linux', execution_context: 'linux-user', pos: [80, 100] },
@@ -84,7 +84,7 @@ const MECHANISM_CASES = {
   workflow: {
     schema_version: 1,
     diagram_type: 'workflow',
-    meta: { title: 'Workflow mechanism', viewBox: [720, 360] },
+    meta: { title: 'Workflow mechanism', viewBox: [720, 360], engineering_profile: 'embedded-runtime' },
     execution_domains: [{ id: 'rtos', label: 'Control core', environment: 'rtos' }],
     lanes: [{ id: 'main', label: 'Control' }],
     nodes: [
@@ -96,7 +96,7 @@ const MECHANISM_CASES = {
   sequence: {
     schema_version: 1,
     diagram_type: 'sequence',
-    meta: { title: 'Sequence mechanism', viewBox: [720, 560], column_fit: 'spread' },
+    meta: { title: 'Sequence mechanism', viewBox: [720, 560], column_fit: 'spread', engineering_profile: 'embedded-runtime' },
     execution_domains: [{ id: 'rtos', label: 'Control core', environment: 'rtos' }],
     participants: [
       { id: 'peripheral', type: 'hardware', label: 'Peripheral', execution_domain: 'rtos', execution_context: 'hardware' },
@@ -107,7 +107,7 @@ const MECHANISM_CASES = {
   dataflow: {
     schema_version: 1,
     diagram_type: 'dataflow',
-    meta: { title: 'Dataflow mechanism', viewBox: [720, 520] },
+    meta: { title: 'Dataflow mechanism', viewBox: [720, 520], engineering_profile: 'embedded-runtime' },
     execution_domains: [{ id: 'linux', label: 'Linux core', environment: 'linux' }],
     stages: [{ label: 'Device' }, { label: 'Kernel' }],
     nodes: [
@@ -119,7 +119,7 @@ const MECHANISM_CASES = {
   lifecycle: {
     schema_version: 1,
     diagram_type: 'lifecycle',
-    meta: { title: 'Lifecycle mechanism', viewBox: [720, 566] },
+    meta: { title: 'Lifecycle mechanism', viewBox: [720, 566], engineering_profile: 'embedded-runtime' },
     execution_domains: [{ id: 'linux', label: 'Linux core', environment: 'linux' }],
     lanes: [{ id: 'main', label: 'Image' }],
     states: [
