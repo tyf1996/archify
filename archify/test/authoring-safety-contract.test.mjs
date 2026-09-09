@@ -12,6 +12,14 @@ const authoringContract = fs.readFileSync(
   'utf8',
 );
 const schemaReadme = fs.readFileSync(path.join(skillRoot, 'schemas', 'README.md'), 'utf8');
+const depthAndSemantics = fs.readFileSync(
+  path.join(skillRoot, 'references', 'embedded', 'depth-and-semantics.md'),
+  'utf8',
+);
+const evidenceTemplate = fs.readFileSync(
+  path.join(skillRoot, 'references', 'embedded', 'evidence-template.md'),
+  'utf8',
+);
 
 test('semantic relationship labels are preserved and deletion is not a geometry repair', () => {
   for (const [name, source] of [['SKILL.md', skill], ['authoring contract', authoringContract]]) {
@@ -49,6 +57,42 @@ test('embedded authoring stays question-first, bounded, and profile-safe', () =>
   assert.match(schemaReadme, /embedded-runtime.*all five diagram types/s);
   assert.match(schemaReadme, /deployment-ownership.*Architecture-only/s);
   assert.match(schemaReadme, /unique non-empty `id`.*non-empty `label`/s);
+});
+
+test('embedded Authoring Depth stays separate from Viewer depth and diagram IR', () => {
+  for (const source of [skill, depthAndSemantics, authoringContract]) {
+    assert.match(source, /Authoring Depth/);
+    assert.match(source, /overview/);
+    assert.match(source, /mechanism/);
+    assert.match(source, /source-interaction/);
+    assert.match(source, /MAP[\s\S]*READ[\s\S]*FULL/);
+  }
+  assert.match(skill, /entities, boundaries, relationships, evidence, and unknowns/);
+  assert.match(skill, /at most 12 primary nodes and no minimum/);
+  assert.match(skill, /instead of merging independent hardware, execution, buffer\/memory, or recovery entities/);
+  assert.match(depthAndSemantics, /不新增图种、Schema 字段或自动证明能力/);
+  assert.match(depthAndSemantics, /同一真实实体在不同图中复用相同稳定 ID/);
+  assert.match(depthAndSemantics, /data-movement[\s\S]*control[\s\S]*irq-notification[\s\S]*buffer-handoff[\s\S]*recovery/);
+  assert.match(evidenceTemplate, /authoringDepth.*不是新增 IR 字段/s);
+  assert.match(evidenceTemplate, /Entity inventory/);
+  assert.match(evidenceTemplate, /Boundary inventory/);
+  assert.match(evidenceTemplate, /Relationship inventory/);
+  assert.match(evidenceTemplate, /Unknown／conflict list/);
+});
+
+test('guide authoringPlan contract is additive, bounded, and does not claim source verification', () => {
+  assert.match(authoringContract, /`archify guide <query> --json` may add a top-level `authoringPlan`/);
+  assert.match(authoringContract, /query guidance, not diagram IR/);
+  assert.match(authoringContract, /Non-embedded queries and context-only keywords omit it/);
+  for (const field of [
+    'domain', 'authoringDepth', 'status', 'primaryType', 'matchedSignals',
+    'inventory', 'sourceEvidenceRequired', 'prompt', 'clarification',
+  ]) {
+    assert.match(authoringContract, new RegExp('`' + field + '`'), field);
+  }
+  assert.match(authoringContract, /embedded\/question-kind-required/);
+  assert.match(authoringContract, /does not claim that the guide has verified a repository/);
+  assert.match(authoringContract, /16 recipe\/proof IDs, order, static guide data, and start data remain unchanged/);
 });
 
 test('schema policy documents the workflow v1/v2 compatibility boundary', () => {

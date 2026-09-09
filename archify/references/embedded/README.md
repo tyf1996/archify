@@ -4,10 +4,13 @@
 
 ## 使用入口
 
-1. 先按问题选择 `embedded-linux.md`、`rtos.md` 或 `bare-metal.md`。
-2. 需要具体生态 API、配置或构建流程时，再读取 `ecosystems/` 下对应文件。
-3. Linux、RTOS 和裸机共存时组合读取相关领域文档；不要把整机强制归为单一环境。
-4. `evidence-template.md` 只用于人工整理证据，不是 Schema，也不会被渲染器自动验证。
+1. 宽泛整理、机制专题、源码交互或多图请求先读 `depth-and-semantics.md`，确定 Authoring Depth、视图分工和五项盘点。
+2. 再按问题选择 `embedded-linux.md`、`rtos.md` 或 `bare-metal.md`。
+3. 需要具体生态 API、配置或构建流程时，再读取 `ecosystems/` 下对应文件。
+4. Linux、RTOS 和裸机共存时组合读取相关领域文档；不要把整机强制归为单一环境。
+5. `evidence-template.md` 只用于人工整理证据，不是 Schema，也不会被渲染器自动验证。
+
+Authoring Depth 的 `overview`、`mechanism`、`source-interaction` 描述编图范围。它与 Viewer Reading Depth 的 `MAP / READ / FULL` 无关，也不进入图 JSON。
 
 ## 取证边界
 

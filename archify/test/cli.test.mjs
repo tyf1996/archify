@@ -178,6 +178,7 @@ test('cli: guide recommends a scenario as structured json', () => {
   assert.equal(parsed.confidence, 'high');
   assert.equal(parsed.recommendation.id, 'api-request');
   assert.equal(parsed.recommendation.type, 'sequence');
+  assert.equal('authoringPlan' in parsed, false);
 });
 
 test('cli: guide detects Chinese and explains the recommendation boundary', () => {
@@ -188,6 +189,58 @@ test('cli: guide detects Chinese and explains the recommendation boundary', () =
   assert.match(result.stdout, /不要这样用:/);
   assert.match(result.stdout, /必须包含:/);
   assert.match(result.stdout, /可直接复制的提示词:/);
+});
+
+test('cli: guide exposes the additive embedded authoring plan as structured json', () => {
+  const result = run(['guide', '整理某嵌入式子系统', '--json']);
+
+  assert.equal(result.status, 0, result.stderr);
+  const parsed = JSON.parse(result.stdout);
+  assert.equal(parsed.recommendation.id, 'system-overview');
+  assert.deepEqual(
+    {
+      domain: parsed.authoringPlan.domain,
+      authoringDepth: parsed.authoringPlan.authoringDepth,
+      status: parsed.authoringPlan.status,
+      primaryType: parsed.authoringPlan.primaryType,
+      inventory: parsed.authoringPlan.inventory,
+      sourceEvidenceRequired: parsed.authoringPlan.sourceEvidenceRequired,
+    },
+    {
+      domain: 'embedded',
+      authoringDepth: 'overview',
+      status: 'ready',
+      primaryType: 'architecture',
+      inventory: ['entities', 'boundaries', 'relationships', 'evidence', 'unknowns'],
+      sourceEvidenceRequired: false,
+    },
+  );
+  assert.match(parsed.authoringPlan.prompt, /Archify architecture/);
+});
+
+test('cli: embedded human guide uses generic fallback copy instead of unrelated recipe instructions', () => {
+  const result = run(['guide', '展示 RTOS 中断和任务的数据流']);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /结构参考: 数据血缘  \[dataflow\]/);
+  assert.match(result.stdout, /编图深度: mechanism/);
+  assert.match(result.stdout, /主图种: dataflow/);
+  assert.match(result.stdout, /编图前盘点: entities、boundaries、relationships、evidence、unknowns/);
+  assert.match(result.stdout, /用 Archify dataflow 模式/);
+  assert.match(result.stdout, /数据移动、控制、IRQ／通知、缓冲交接、完成和恢复关系/);
+  assert.doesNotMatch(result.stdout, /用户同意|数仓|分类边界/);
+});
+
+test('cli: ambiguous embedded depth prints one clarification and no copy-ready prompt', () => {
+  const result = run(['guide', '梳理某嵌入式子系统的源码交互']);
+
+  assert.equal(result.status, 0, result.stderr);
+  assert.match(result.stdout, /编图深度: source-interaction/);
+  assert.match(result.stdout, /主图种: 待澄清/);
+  assert.match(result.stdout, /源码证据: 需要有界源码证据/);
+  assert.match(result.stdout, /需要澄清:/);
+  assert.match(result.stdout, /结构归属、动作流程、交互顺序、数据移动还是状态变化/);
+  assert.doesNotMatch(result.stdout, /可直接复制的提示词:/);
 });
 
 test('cli: guide works from an installed skill without node_modules', () => {
@@ -202,6 +255,15 @@ test('cli: guide works from an installed skill without node_modules', () => {
 
   assert.equal(result.status, 0, result.stderr);
   assert.equal(JSON.parse(result.stdout).recommendation.id, 'incident-runbook');
+
+  const embeddedResult = spawnSync(process.execPath, [installedCli, 'guide', 'Show the RTOS ISR interaction order with a worker task', '--json'], {
+    cwd: installedRoot,
+    encoding: 'utf8',
+  });
+  assert.equal(embeddedResult.status, 0, embeddedResult.stderr);
+  const embedded = JSON.parse(embeddedResult.stdout);
+  assert.equal(embedded.authoringPlan.primaryType, 'sequence');
+  assert.equal(embedded.authoringPlan.authoringDepth, 'mechanism');
 });
 
 test('cli: demo creates a ready-to-open diagram in a chosen directory', () => {

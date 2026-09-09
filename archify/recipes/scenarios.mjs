@@ -417,6 +417,77 @@ function normalized(value) {
     .replace(/\s+/g, ' ');
 }
 
+const AUTHORING_INVENTORY = Object.freeze([
+  'entities',
+  'boundaries',
+  'relationships',
+  'evidence',
+  'unknowns',
+]);
+
+const EMBEDDED_CONTEXT_PHRASES = Object.freeze([
+  'embedded', 'rtos', 'bare metal', 'firmware', 'mcu',
+  '嵌入式', '实时操作系统', '裸机', '固件', '微控制器',
+]);
+
+const EMBEDDED_CONTEXT_COMBINATIONS = Object.freeze([
+  ['linux', 'driver'], ['linux', 'device'], ['linux', 'dma'], ['linux', 'irq'],
+  ['linux', 'interrupt'], ['linux', 'kernel buffer'], ['linux', 'firmware'],
+  ['linux', '驱动'], ['linux', '设备'], ['linux', '中断'], ['linux', '内核缓冲'], ['linux', '固件'],
+  ['interrupt', 'task'], ['irq', 'worker'], ['isr', 'worker'], ['dma', 'buffer'],
+  ['中断', '任务'], ['中断', 'worker'], ['dma', '缓冲'],
+]);
+
+const AUTHORING_REQUEST_PHRASES = Object.freeze([
+  'show', 'draw', 'map', 'explain', 'analyze', 'organize', 'document', 'visualize', 'trace',
+  'review', 'create', 'model', 'describe', 'how',
+  '整理', '梳理', '展示', '绘制', '解释', '分析', '描述', '核对', '画', '建模', '说明', '如何', '怎么',
+]);
+
+const SOURCE_INTERACTION_PHRASES = Object.freeze([
+  'source interaction', 'source code interaction', 'source level interaction', 'source trace',
+  'implementation path', 'code path', 'call site', 'function call', 'handler call',
+  '源码交互', '源码调用', '源码路径', '代码交互', '代码调用', '实现路径', '函数调用', 'handler 调用',
+]);
+
+const MECHANISM_PHRASES = Object.freeze([
+  'mechanism', 'how it works', 'runtime behavior', 'interaction order', 'message order', 'call chain',
+  'data flow', 'data path', 'data movement', 'workflow', 'state machine', 'state transition',
+  'state', 'lifecycle', 'boot', 'startup', 'initialization', 'update', 'handoff', 'notification',
+  'recovery', 'irq', 'isr', 'interrupt',
+  '机制', '如何工作', '运行行为', '交互顺序', '消息顺序', '调用链', '数据流', '数据通路',
+  '数据移动', '流程', '状态机', '状态流转', '状态', '生命周期', '启动', '复位', '初始化',
+  '更新', '交接', '通知', '恢复', '中断',
+]);
+
+const OVERVIEW_PHRASES = Object.freeze([
+  'overview', 'architecture', 'component map', 'system structure', 'runtime map', 'organization',
+  '总览', '架构', '组件图', '系统结构', '运行时总览', '组成', '边界', '整理', '梳理',
+]);
+
+const EMBEDDED_ANSWER_KIND = Object.freeze({
+  architecture: {
+    en: 'runtime ownership, software/hardware boundaries, and cross-domain structure',
+    zh: '运行归属、软硬件边界和跨域结构',
+  },
+  workflow: {
+    en: 'actions, conditions, initialization, update, and recovery flow',
+    zh: '动作、条件、初始化、更新和恢复流程',
+  },
+  sequence: {
+    en: 'calls, IRQ/notification, returns, and asynchronous completion order',
+    zh: '调用、IRQ／通知、返回和异步完成顺序',
+  },
+  dataflow: {
+    en: 'data movement, buffering, handoff, consumption, and loss paths',
+    zh: '数据移动、缓冲、交接、消费和丢失路径',
+  },
+  lifecycle: {
+    en: 'object states, events, guards, recovery, and terminal outcomes',
+    zh: '对象状态、事件、条件、恢复和终态',
+  },
+});
+
 const RECIPE_INTENTS = Object.freeze({
   'embedded-runtime-map': 'architecture',
   'bare-metal-boot': 'workflow',
@@ -466,8 +537,20 @@ const INTENT_RULES = Object.freeze([
   },
 ]);
 
+function includesPhrase(text, phrase) {
+  const target = normalized(phrase);
+  if (!target) return false;
+  return /[\u3400-\u9fff]/u.test(target)
+    ? text.includes(target)
+    : ` ${text} `.includes(` ${target} `);
+}
+
 function includesAll(text, terms) {
   return terms.every((term) => text.includes(normalized(term)));
+}
+
+function includesAllPhrases(text, terms) {
+  return terms.every((term) => includesPhrase(text, term));
 }
 
 function bestPhraseMatch(text, phrases, explicit) {
@@ -493,6 +576,97 @@ function detectIntent(query) {
 
   const combination = INTENT_RULES.find((rule) => rule.combinations.some((terms) => includesAll(text, terms)));
   return combination ? { intent: combination.intent, explicit: false } : null;
+}
+
+function matchingPhrases(text, phrases) {
+  return phrases.filter((phrase) => includesPhrase(text, phrase));
+}
+
+function hasEmbeddedContext(text) {
+  const rtosFamilyToken = text.split(' ').some((token) => token === 'rtos' || (token.length > 4 && token.endsWith('rtos')));
+  return rtosFamilyToken
+    || EMBEDDED_CONTEXT_PHRASES.some((phrase) => includesPhrase(text, phrase))
+    || EMBEDDED_CONTEXT_COMBINATIONS.some((terms) => includesAllPhrases(text, terms));
+}
+
+function hasAuthoringRequest(text) {
+  return AUTHORING_REQUEST_PHRASES.some((phrase) => includesPhrase(text, phrase));
+}
+
+function detectEmbeddedAuthoringDepth(text, typeHint) {
+  const sourceSignals = matchingPhrases(text, SOURCE_INTERACTION_PHRASES);
+  if (sourceSignals.length) {
+    return { authoringDepth: 'source-interaction', matchedSignals: [...new Set(sourceSignals)] };
+  }
+
+  const mechanismSignals = matchingPhrases(text, MECHANISM_PHRASES);
+  if (mechanismSignals.length || (typeHint && typeHint !== 'architecture')) {
+    return { authoringDepth: 'mechanism', matchedSignals: [...new Set(mechanismSignals)] };
+  }
+
+  const overviewSignals = matchingPhrases(text, OVERVIEW_PHRASES);
+  return { authoringDepth: 'overview', matchedSignals: [...new Set(overviewSignals)] };
+}
+
+function embeddedPlanPrompt(type, authoringDepth, lang) {
+  const isZh = lang === 'zh';
+  const answerKind = EMBEDDED_ANSWER_KIND[type][isZh ? 'zh' : 'en'];
+  if (isZh) {
+    const inventory = '先盘点实体、边界、关系、证据和未知项';
+    const truthBoundary = '保留 source、config、observation、design、inference 和 unknown 的边界；不声称证明调度、WCET、缓存一致性、电气或功能安全';
+    if (authoringDepth === 'overview') {
+      return `${inventory}，再用 Archify ${type} 模式回答${answerKind}。保留一条证据支持的主路径，主实体不超过 12 个且不设最低数量；把次要细节留给机制专题，不要合并独立的硬件、执行实体、缓冲／内存或恢复对象。${truthBoundary}。`;
+    }
+    const semanticSplit = '分开软件、硬件和执行上下文，以及数据移动、控制、IRQ／通知、缓冲交接、完成和恢复关系；对已确认的关键关系使用 semanticChecks.requiredRelations';
+    if (authoringDepth === 'source-interaction') {
+      return `${inventory}，只检查有界的目标源码、revision、有效配置和相关入口，再用 Archify ${type} 模式回答${answerKind}。${semanticSplit}。缺少证据的源码行为保持 unknown；${truthBoundary}。`;
+    }
+    return `${inventory}，再用 Archify ${type} 模式回答${answerKind}。${semanticSplit}。概览预算不能迫使专题合并独立实体；${truthBoundary}。`;
+  }
+
+  const inventory = 'First inventory entities, boundaries, relationships, evidence, and unknowns';
+  const truthBoundary = 'Keep source, config, observation, design, inference, and unknown boundaries explicit; do not claim proof of scheduling, WCET, cache coherence, electrical behavior, or functional safety';
+  if (authoringDepth === 'overview') {
+    return `${inventory}, then use Archify ${type} mode to answer ${answerKind}. Keep one evidence-backed main path with at most 12 primary entities and no minimum; move lower-priority detail to a mechanism view instead of merging independent hardware, execution, buffer/memory, or recovery entities. ${truthBoundary}.`;
+  }
+  const semanticSplit = 'Separate software, hardware, and execution contexts, plus data movement, control, IRQ/notification, buffer handoff, completion, and recovery relations; put confirmed critical relations in semanticChecks.requiredRelations';
+  if (authoringDepth === 'source-interaction') {
+    return `${inventory}, inspect only bounded target source, revision, effective configuration, and relevant entrypoints, then use Archify ${type} mode to answer ${answerKind}. ${semanticSplit}. Keep unsupported source behavior unknown. ${truthBoundary}.`;
+  }
+  return `${inventory}, then use Archify ${type} mode to answer ${answerKind}. ${semanticSplit}. Do not merge independent entities to satisfy an overview budget. ${truthBoundary}.`;
+}
+
+function embeddedAuthoringPlan(query, lang, typeHint, exactMatch) {
+  const text = normalized(query);
+  if (!hasEmbeddedContext(text)) return null;
+
+  const depth = detectEmbeddedAuthoringDepth(text, typeHint);
+  const isRequest = Boolean(exactMatch || typeHint || hasAuthoringRequest(text) || depth.matchedSignals.length);
+  if (!isRequest) return null;
+
+  const primaryType = typeHint || (depth.authoringDepth === 'overview' ? 'architecture' : null);
+  const status = primaryType ? 'ready' : 'needs-clarification';
+  const base = {
+    domain: 'embedded',
+    authoringDepth: depth.authoringDepth,
+    status,
+    primaryType,
+    matchedSignals: depth.matchedSignals.slice(),
+    inventory: AUTHORING_INVENTORY.slice(),
+    sourceEvidenceRequired: depth.authoringDepth === 'source-interaction',
+  };
+  if (status === 'ready') {
+    return { ...base, prompt: embeddedPlanPrompt(primaryType, depth.authoringDepth, lang) };
+  }
+  return {
+    ...base,
+    clarification: {
+      code: 'embedded/question-kind-required',
+      question: lang === 'zh'
+        ? '你要优先回答结构归属、动作流程、交互顺序、数据移动还是状态变化？'
+        : 'Which matters most: structure and ownership, action flow, interaction order, data movement, or state changes?',
+    },
+  };
 }
 
 function specificEmbeddedMatch(recipe, text) {
@@ -537,9 +711,9 @@ function scoreRecipe(recipe, query) {
 
 export function recommendScenario(query, options = {}) {
   const lang = options.lang === 'zh' || options.lang === 'en' ? options.lang : detectGuideLanguage(query);
-  const exactId = SCENARIO_RECIPES.some((recipe) => normalized(query) === normalized(recipe.id));
+  const exactRecipe = SCENARIO_RECIPES.find((recipe) => normalized(query) === normalized(recipe.id));
   const intent = detectIntent(query);
-  const compatible = !exactId && intent?.explicit
+  const compatible = !exactRecipe && intent?.explicit
     ? SCENARIO_RECIPES.filter((recipe) => (RECIPE_INTENTS[recipe.id] || recipe.type) === intent.intent)
     : SCENARIO_RECIPES;
   const ranked = compatible.map((recipe) => scoreRecipe(recipe, query))
@@ -548,6 +722,8 @@ export function recommendScenario(query, options = {}) {
     ? ranked[0]
     : { recipe: SCENARIO_RECIPES[0], score: 0, matched: [] };
   const confidence = winner.score >= 14 ? 'high' : winner.score >= 7 ? 'medium' : 'low';
+  const typeHint = intent?.intent || exactRecipe?.type || (winner.score > 0 ? (RECIPE_INTENTS[winner.recipe.id] || winner.recipe.type) : null);
+  const authoringPlan = embeddedAuthoringPlan(query, lang, typeHint, Boolean(exactRecipe));
   return {
     ok: true,
     mode: 'recommendation',
@@ -559,6 +735,7 @@ export function recommendScenario(query, options = {}) {
     alternatives: ranked.filter((entry) => entry.recipe.id !== winner.recipe.id && entry.score > 0)
       .slice(0, 2)
       .map((entry) => ({ ...localized(entry.recipe, lang), score: entry.score })),
+    ...(authoringPlan ? { authoringPlan } : {}),
   };
 }
 
@@ -580,26 +757,48 @@ export function formatScenarioRecommendation(result) {
   const isZh = result.lang === 'zh';
   const recipe = result.recommendation;
   const labels = isZh ? {
-    heading: '推荐', question: '要回答的问题', use: '适合', avoid: '不要这样用', include: '必须包含', presentation: '表现建议', prompt: '可直接复制的提示词', alternatives: '其他可能', confidence: '置信度',
+    heading: '推荐', structuralReference: '结构参考', question: '要回答的问题', use: '适合', avoid: '不要这样用', include: '必须包含', presentation: '表现建议', prompt: '可直接复制的提示词', alternatives: '其他可能', confidence: '置信度',
+    authoringDepth: '编图深度', primaryType: '主图种', inventory: '编图前盘点', sourceEvidence: '源码证据', clarification: '需要澄清', pending: '待澄清', required: '需要有界源码证据', notRequired: '不因当前深度强制',
   } : {
-    heading: 'Recommendation', question: 'Question answered', use: 'Use when', avoid: 'Avoid when', include: 'Must include', presentation: 'Presentation', prompt: 'Copy-ready prompt', alternatives: 'Other possible fits', confidence: 'Confidence',
+    heading: 'Recommendation', structuralReference: 'Structural reference', question: 'Question answered', use: 'Use when', avoid: 'Avoid when', include: 'Must include', presentation: 'Presentation', prompt: 'Copy-ready prompt', alternatives: 'Other possible fits', confidence: 'Confidence',
+    authoringDepth: 'Authoring depth', primaryType: 'Primary type', inventory: 'Pre-authoring inventory', sourceEvidence: 'Source evidence', clarification: 'Clarification required', pending: 'needs clarification', required: 'bounded source evidence required', notRequired: 'not required by this depth',
   };
-  const lines = [
-    `${labels.heading}: ${recipe.title}  [${recipe.type}]`,
-    `${labels.confidence}: ${result.confidence}`,
-    `${labels.question}: ${recipe.question}`,
-    '',
-    `${labels.use}: ${recipe.useWhen}`,
-    `${labels.avoid}: ${recipe.avoidWhen}`,
-    `${labels.include}: ${recipe.include.join(isZh ? '、' : '; ')}`,
-    `${labels.presentation}: ${recipe.presentation.preset} · ${recipe.presentation.motion} · views ${recipe.presentation.views}`,
-    '',
-    `${labels.prompt}:`,
-    recipe.prompt,
-  ];
-  if (result.alternatives.length) {
-    lines.push('', `${labels.alternatives}: ${result.alternatives.map((item) => `${item.title} [${item.type}]`).join(' · ')}`);
+
+  if (!result.authoringPlan) {
+    const lines = [
+      `${labels.heading}: ${recipe.title}  [${recipe.type}]`,
+      `${labels.confidence}: ${result.confidence}`,
+      `${labels.question}: ${recipe.question}`,
+      '',
+      `${labels.use}: ${recipe.useWhen}`,
+      `${labels.avoid}: ${recipe.avoidWhen}`,
+      `${labels.include}: ${recipe.include.join(isZh ? '、' : '; ')}`,
+      `${labels.presentation}: ${recipe.presentation.preset} · ${recipe.presentation.motion} · views ${recipe.presentation.views}`,
+      '',
+      `${labels.prompt}:`,
+      recipe.prompt,
+    ];
+    if (result.alternatives.length) {
+      lines.push('', `${labels.alternatives}: ${result.alternatives.map((item) => `${item.title} [${item.type}]`).join(' · ')}`);
+    }
+    return lines.join('\n');
   }
+
+  const plan = result.authoringPlan;
+  const lines = [
+    `${labels.structuralReference}: ${recipe.title}  [${recipe.type}]`,
+    `${labels.confidence}: ${result.confidence}`,
+    `${labels.authoringDepth}: ${plan.authoringDepth}`,
+    `${labels.primaryType}: ${plan.primaryType || labels.pending}`,
+    `${labels.inventory}: ${plan.inventory.join(isZh ? '、' : '; ')}`,
+    `${labels.sourceEvidence}: ${plan.sourceEvidenceRequired ? labels.required : labels.notRequired}`,
+  ];
+  if (plan.status === 'needs-clarification') {
+    lines.push('', `${labels.clarification}:`, plan.clarification.question);
+    return lines.join('\n');
+  }
+
+  lines.push('', `${labels.prompt}:`, plan.prompt);
   return lines.join('\n');
 }
 

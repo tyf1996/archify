@@ -24,12 +24,26 @@ const ecosystemFiles = [
 test('embedded reference tree contains the bounded authoring entrypoints', () => {
   for (const file of [
     'README.md',
+    'depth-and-semantics.md',
     'evidence-template.md',
     ...domainFiles,
     ...ecosystemFiles.map((file) => `ecosystems/${file}`),
   ]) {
     assert.equal(fs.existsSync(path.join(embedded, file)), true, file);
   }
+});
+
+test('depth reference defines bounded authoring scope, view separation, and semantic completeness', () => {
+  const depth = read('depth-and-semantics.md');
+  assert.match(depth, /Authoring Depth.*Viewer.*Reading Depth.*MAP.*READ.*FULL/s);
+  assert.match(depth, /overview.*mechanism.*source-interaction/s);
+  assert.match(depth, /实体、边界、关系、证据和未知项/);
+  assert.match(depth, /最多 12 个主实体，不设最低节点数/);
+  assert.match(depth, /不能代替不同图种或不同抽象层级的独立图/);
+  assert.match(depth, /不为满足节点预算合并独立的硬件 actor、ISR、线程／任务／进程、buffer／memory 或恢复控制对象/);
+  assert.match(depth, /data-movement.*control.*irq-notification.*buffer-handoff.*recovery/s);
+  assert.match(depth, /不声称证明调度、WCET、缓存一致性、电气或功能安全/);
+  assert.match(depth, /不新增图种、Schema 字段或自动证明能力/);
 });
 
 test('domain references preserve the four environment boundaries', () => {
@@ -131,6 +145,7 @@ test('evidence template keeps the approved manual columns and no new IR field', 
 test('references do not introduce unapproved schema fields or implementation hooks', () => {
   const files = [
     'README.md',
+    'depth-and-semantics.md',
     'evidence-template.md',
     ...domainFiles,
     ...ecosystemFiles.map((file) => `ecosystems/${file}`),

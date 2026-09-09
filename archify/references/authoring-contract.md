@@ -14,7 +14,27 @@ Do not invent fields. Use the nearest matching example for structure, then autho
 
 ## Embedded authoring contract
 
-For embedded Linux, RTOS, bare-metal, and mixed-runtime questions, bound target-firmware evidence before artifact-first authoring: record the target version, board, build/configuration, startup or execution boundary, and relevant artifact. Inspect the target project read-only and write only the diagram or its evidence/delivery materials. Missing build artifacts remain unknown; do not default to building, downloading an SDK, launching a simulator, or accessing/writing a device. Any extra action needs separate authorization. Read the smallest matching reference under `references/embedded/`; do not treat an OS name as a diagram type.
+For embedded Linux, RTOS, bare-metal, and mixed-runtime questions, bound target-firmware evidence before artifact-first authoring: record the target version, board, build/configuration, startup or execution boundary, and relevant artifact. Inspect the target project read-only and write only the diagram or its evidence/delivery materials. Missing build artifacts remain unknown; do not default to building, downloading an SDK, launching a simulator, or accessing/writing a device. Any extra action needs separate authorization. Read the smallest matching reference under `references/embedded/`; use [`depth-and-semantics.md`](embedded/depth-and-semantics.md) for broad, mechanism, source-interaction, or multi-view requests. Do not treat an OS name as a diagram type.
+
+### Guide Authoring Plan
+
+For a query with strong embedded context and an actual authoring request, `archify guide <query> --json` may add a top-level `authoringPlan`. It is query guidance, not diagram IR, and never enters a diagram Schema. Non-embedded queries and context-only keywords omit it. Existing recommendation fields remain present and keep their meanings.
+
+The stable additive shape is:
+
+- `domain`: always `"embedded"`;
+- `authoringDepth`: `"overview"`, `"mechanism"`, or `"source-interaction"`;
+- `status`: `"ready"` or `"needs-clarification"`;
+- `primaryType`: one of the five diagram types when ready, otherwise `null`;
+- `matchedSignals`: the bounded query phrases used for Authoring Depth;
+- `inventory`: the fixed ordered list `entities`, `boundaries`, `relationships`, `evidence`, `unknowns`;
+- `sourceEvidenceRequired`: `true` only for `source-interaction`;
+- `prompt`: present only when ready and contains generic embedded authoring guidance for the selected type;
+- `clarification`: present only when clarification is required, with stable code `embedded/question-kind-required` and one localized question.
+
+A broad request to organize an embedded subsystem defaults to `overview` with Architecture. A mechanism or source-interaction request that already identifies structure, actions, interaction order, data movement, or state changes is ready; otherwise the guide asks only which of those answer kinds matters. Authoring Depth never overrides the question-first type router. It is distinct from Viewer Reading Depth `MAP / READ / FULL`. Source-interaction requires bounded source/configuration evidence but does not claim that the guide has verified a repository; outside Architecture, source references remain an evidence-sidecar responsibility.
+
+Human-readable guide output uses the generic `authoringPlan.prompt` for a ready embedded query so an unrelated structural proof recipe is not copied as target fact. When clarification is required it prints the single question and no copy-ready prompt. The existing recipe recommendation remains a structural reference, and the 16 recipe/proof IDs, order, static guide data, and start data remain unchanged.
 
 The approved embedded shape is additive and optional: top-level execution domains use a unique `id`, a non-empty `label`, and `environment` (`linux|rtos|bare-metal`), with optional runtime/version/processor/cores; supported node collections may name `execution_domain` and `execution_context`; relationship collections may name `mechanism`; and `semanticChecks.requiredRelations` may state exact directed requirements. Use only fields accepted by the current Schema. The seven legacy component types remain a compatibility subset; see [Embedded interface (A1)](../schemas/README.md#embedded-interface-a1) for the complete role directory and the `embedded-runtime` execution-entity context matrix. They do not replace existing types or create an `unknown` node.
 

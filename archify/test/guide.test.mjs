@@ -222,6 +222,101 @@ test('guide: exact ids win and unknown questions fall back honestly', () => {
   assert.deepEqual(unknown.matchedSignals, []);
 });
 
+test('guide: embedded authoring plan is additive while context-only and ordinary queries keep the legacy shape', () => {
+  for (const query of ['Linux', 'RTOS', 'FreeRTOS', 'MCU', 'embedded', 'Linux RTOS']) {
+    assert.equal('authoringPlan' in recommendScenario(query), false, query);
+  }
+  assert.equal('authoringPlan' in recommendScenario('Show an API request with Redis cache miss'), false);
+  assert.equal('authoringPlan' in recommendScenario('Document a customer support thread architecture'), false);
+
+  const overview = recommendScenario('整理某嵌入式子系统');
+  assert.equal(overview.recommendation.id, 'system-overview');
+  assert.deepEqual(
+    {
+      domain: overview.authoringPlan.domain,
+      authoringDepth: overview.authoringPlan.authoringDepth,
+      status: overview.authoringPlan.status,
+      primaryType: overview.authoringPlan.primaryType,
+      inventory: overview.authoringPlan.inventory,
+      sourceEvidenceRequired: overview.authoringPlan.sourceEvidenceRequired,
+    },
+    {
+      domain: 'embedded',
+      authoringDepth: 'overview',
+      status: 'ready',
+      primaryType: 'architecture',
+      inventory: ['entities', 'boundaries', 'relationships', 'evidence', 'unknowns'],
+      sourceEvidenceRequired: false,
+    },
+  );
+  assert.deepEqual(overview.authoringPlan.matchedSignals, ['整理']);
+  assert.match(overview.authoringPlan.prompt, /architecture/);
+  assert.match(overview.authoringPlan.prompt, /不超过 12 个且不设最低数量/);
+});
+
+test('guide: mechanism and source-interaction depth ask one material question only when the answer kind is absent', () => {
+  const mechanism = recommendScenario('梳理某嵌入式子系统的运行机制');
+  assert.deepEqual(
+    {
+      authoringDepth: mechanism.authoringPlan.authoringDepth,
+      status: mechanism.authoringPlan.status,
+      primaryType: mechanism.authoringPlan.primaryType,
+      sourceEvidenceRequired: mechanism.authoringPlan.sourceEvidenceRequired,
+      code: mechanism.authoringPlan.clarification.code,
+    },
+    {
+      authoringDepth: 'mechanism',
+      status: 'needs-clarification',
+      primaryType: null,
+      sourceEvidenceRequired: false,
+      code: 'embedded/question-kind-required',
+    },
+  );
+  assert.equal('prompt' in mechanism.authoringPlan, false);
+  assert.match(mechanism.authoringPlan.clarification.question, /结构归属.*动作流程.*交互顺序.*数据移动.*状态变化/);
+
+  const source = recommendScenario('Review the source code interaction for an embedded subsystem.');
+  assert.equal(source.authoringPlan.authoringDepth, 'source-interaction');
+  assert.equal(source.authoringPlan.status, 'needs-clarification');
+  assert.equal(source.authoringPlan.primaryType, null);
+  assert.equal(source.authoringPlan.sourceEvidenceRequired, true);
+  assert.equal('prompt' in source.authoringPlan, false);
+  assert.equal(Object.keys(source.authoringPlan.clarification).length, 2);
+});
+
+test('guide: authoring depth stays orthogonal to five question-first types across four runtime classes', () => {
+  const cases = [
+    ['Organize an embedded mixed-runtime component architecture and execution boundaries.', 'architecture', 'overview'],
+    ['Explain the bare-metal startup and recovery workflow.', 'workflow', 'mechanism'],
+    ['Trace the source code interaction order from an RTOS ISR notification to a worker task.', 'sequence', 'source-interaction'],
+    ['Show an embedded API request with Redis cache miss.', 'sequence', 'mechanism'],
+    ['Show the Linux driver data flow from hardware through a buffer to a user process.', 'dataflow', 'mechanism'],
+    ['Model firmware state transitions through retry and recovery.', 'lifecycle', 'mechanism'],
+  ];
+  for (const [query, expectedType, expectedDepth] of cases) {
+    const result = recommendScenario(query);
+    assert.equal(result.recommendation.type, expectedType, query);
+    assert.equal(result.authoringPlan.status, 'ready', query);
+    assert.equal(result.authoringPlan.primaryType, expectedType, query);
+    assert.equal(result.authoringPlan.authoringDepth, expectedDepth, query);
+    assert.match(result.authoringPlan.prompt, new RegExp(`Archify ${expectedType}`), query);
+  }
+});
+
+test('guide: generic embedded fallback overrides unrelated recipe copy without changing recipe identity', () => {
+  const dataflow = recommendScenario('展示 RTOS 中断和任务的数据流');
+  assert.equal(dataflow.recommendation.id, 'data-lineage');
+  assert.equal(dataflow.authoringPlan.primaryType, 'dataflow');
+  assert.match(dataflow.authoringPlan.prompt, /Archify dataflow/);
+  assert.doesNotMatch(dataflow.authoringPlan.prompt, /ETL|数仓|PII|数据血缘/i);
+
+  const sequence = recommendScenario('分析裸机 DMA 中断和主循环的交互顺序');
+  assert.equal(sequence.recommendation.id, 'api-request');
+  assert.equal(sequence.authoringPlan.primaryType, 'sequence');
+  assert.match(sequence.authoringPlan.prompt, /Archify sequence/);
+  assert.doesNotMatch(sequence.authoringPlan.prompt, /API|Redis|JWT|cache/i);
+});
+
 test('guide: public data includes both languages and weighted signals', () => {
   const data = publicGuideData();
   assert.equal(data.length, 16);
