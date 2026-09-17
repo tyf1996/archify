@@ -134,6 +134,8 @@ Generated HTML already contains theme switching, pan/zoom, search, focus, relati
 
 Read `references/viewer-runtime.md` only when the user explicitly asks for Share Cards, Route/Reach cards, motion, guided stories, deep links, presentation, search/focus, or another Viewer Runtime feature.
 
+For a multi-diagram source atlas, a key-interface catalog, or interfaces embedded in diagram nodes, read [`references/interface-atlas.md`](references/interface-atlas.md). Reuse its optional offline assets and builder rather than recreating a project-specific viewer. Keep interfaces in a separate catalog, bind them to authored node IDs, and preserve native delivery separately from enriched readers. Ordinary diagrams do not need this extension.
+
 ## Setup and fallback
 
 No install is required inside the skill package. Verify with:

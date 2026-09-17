@@ -1,0 +1,50 @@
+{
+  "version": 1,
+  "title": "Worker source interface atlas",
+  "locale": "en",
+  "context": "Illustrative API contract, not production code. Only the checked-in header signatures are mechanically verified; behavior below is example documentation.",
+  "sources": [
+    {"id": "worker-header", "path": "worker.h", "sha256": "4b05d33b2f33b8d040a07eb62c0d0c5e75aa47c837abf5d6d2e575d3968b3982"}
+  ],
+  "interfaces": [
+    {
+      "id": "worker-open", "name": "worker_open", "kind": "Public C declaration",
+      "summary": "Initialize a worker with an explicit capacity.",
+      "signature": "int worker_open(unsigned int capacity);",
+      "parameters": ["capacity [in]: maximum accepted job count in this illustrative contract."],
+      "returns": "Example contract: zero on success, negative on initialization failure.",
+      "callers": ["Application startup"], "calls": [],
+      "notes": ["A declaration is not evidence that an implementation or error path was executed."],
+      "sources": [{"source": "worker-header", "startLine": 2, "endLine": 2, "label": "Declaration"}],
+      "signatureSource": {"source": "worker-header", "startLine": 2, "endLine": 2}
+    },
+    {
+      "id": "worker-run", "name": "worker_run", "kind": "Public C declaration",
+      "summary": "Run one caller-supplied job with a timeout.",
+      "signature": "int worker_run(const char *job, unsigned int timeout_ms);",
+      "parameters": ["job [in]: borrowed job text.", "timeout_ms [in]: caller-selected bound in milliseconds."],
+      "returns": "Example contract: zero on completion, negative on invalid input or timeout.",
+      "callers": ["Application request path"], "calls": [],
+      "notes": ["Timeout does not by itself prove cancellation, rollback or safe recovery."],
+      "sources": [{"source": "worker-header", "startLine": 3, "endLine": 3, "label": "Declaration"}],
+      "signatureSource": {"source": "worker-header", "startLine": 3, "endLine": 3}
+    },
+    {
+      "id": "worker-close", "name": "worker_close", "kind": "Public C declaration",
+      "summary": "Release the worker after the application has finished using it.",
+      "signature": "void worker_close(void);",
+      "parameters": [], "returns": "No return value.",
+      "callers": ["Application shutdown"], "calls": [],
+      "notes": ["This fixture does not specify concurrent shutdown behavior."],
+      "sources": [{"source": "worker-header", "startLine": 4, "endLine": 4, "label": "Declaration"}],
+      "signatureSource": {"source": "worker-header", "startLine": 4, "endLine": 4}
+    }
+  ],
+  "diagrams": [
+    {
+      "id": "structure", "title": "Worker interface ownership",
+      "specification": "structure.json", "base": "structure.archify.html", "delivery": "structure.archify.delivery.json",
+      "nodes": [{"id": "worker", "interfaces": ["worker-open", "worker-run", "worker-close"], "note": "Three declarations belong to the same API component; this is not an execution sequence."}]
+    }
+  ]
+}

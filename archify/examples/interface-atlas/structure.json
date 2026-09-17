@@ -1,0 +1,15 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {"title": "Worker interface ownership", "locale": "en", "quality_profile": "showcase"},
+  "components": [
+    {"id": "client", "type": "external", "label": "Application", "sublabel": "Owns the worker lifetime", "pos": [50, 100], "size": [210, 90]},
+    {"id": "worker", "type": "backend", "label": "Worker API", "sublabel": "worker_open", "tag": "API 3", "pos": [450, 100], "size": [250, 110]}
+  ],
+  "connections": [
+    {"id": "worker-call", "from": "client", "to": "worker", "label": "synchronous call", "variant": "emphasis"}
+  ],
+  "cards": [
+    {"dot": "cyan", "title": "Illustrative fixture", "items": ["The header declares the interfaces; no runtime behavior was tested.", "Click Worker API for signatures, parameters and source spans."]}
+  ]
+}
